@@ -81,7 +81,7 @@ public:
     void setMaxNumEvents(int n);
     int maxNumEvents() const { return maxNumEvents_; }
 
-    JVRCEventRecordPtr createRecord(double time);
+    JVRCEventRecord* createRecord(double time);
 
 private:
     weak_ref_ptr<JVRCTask> task_;
@@ -95,14 +95,12 @@ private:
 class JVRCEventRecord : public JVRCEvent
 {
 public:
-    double recordTime() const { return recordTime_; }
-    double eventTime() const { return eventTime_; }
+    double time() const { return time_; }
 
 private:
     JVRCEventRecord(JVRCEvent* event, double time);
 
-    double recordTime_;
-    double eventTime_;
+    double time_;
 
     friend class JVRCEvent;
 };

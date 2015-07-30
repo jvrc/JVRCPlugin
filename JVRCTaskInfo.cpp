@@ -49,7 +49,7 @@ void JVRCEvent::setLabel(const std::string& label)
 }
 
 
-JVRCEventRecordPtr JVRCEvent::createRecord(double time)
+JVRCEventRecord* JVRCEvent::createRecord(double time)
 {
     return new JVRCEventRecord(this, time);
 }
@@ -64,8 +64,7 @@ void JVRCEvent::setMaxNumEvents(int n)
 JVRCEventRecord::JVRCEventRecord(JVRCEvent* event, double time)
     : JVRCEvent(*event)
 {
-    recordTime_ = time;
-    eventTime_ = time;
+    time_ = time;
 }
 
 
