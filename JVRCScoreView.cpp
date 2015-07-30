@@ -67,14 +67,17 @@ public:
     JVRCTaskInfoPtr taskInfo;
     int currentTaskIndex;
 
+    QVBoxLayout* topVBox;
     QLabel scoreLabel;
     QLabel timeLabel;
     QLabel positionLabel;
     QLabel taskLabel;
     PushButton prevButton;
     PushButton nextButton;
-    QHBoxLayout buttonBox1;
-    QHBoxLayout buttonBox2;
+    QVBoxLayout buttonVBox;
+    QHBoxLayout buttonHBox1;
+    QHBoxLayout buttonHBox2;
+    QSpacerItem* buttonVBoxSpacer;
     vector<PushButton*> buttons;
     EventListWidget eventList;
 
@@ -110,22 +113,35 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     
     QVBoxLayout* vbox = new QVBoxLayout();
 
+    QLabel* label;
+    QFont font = scoreLabel.font();
+    font.setPointSize(font.pointSize() + 6);
+
     QHBoxLayout* hbox = new QHBoxLayout();
-    hbox->addWidget(new QLabel("Score: "));
+    label = new QLabel("Score: ");
+    label->setFont(font);
+    hbox->addWidget(label);
+    scoreLabel.setFont(font);
     scoreLabel.setText("0");
     hbox->addWidget(&scoreLabel);
     hbox->addStretch();
     vbox->addLayout(hbox);
 
     hbox = new QHBoxLayout();
-    hbox->addWidget(new QLabel("Time: "));
+    label = new QLabel("Time: ");
+    label->setFont(font);
+    hbox->addWidget(label);
+    timeLabel.setFont(font);
     timeLabel.setText("0:00.00");
     hbox->addWidget(&timeLabel);
     hbox->addStretch();
     vbox->addLayout(hbox);
 
     hbox = new QHBoxLayout();
-    hbox->addWidget(new QLabel("Position: "));
+    label = new QLabel("Position: ");
+    //label->setFont(font);
+    hbox->addWidget(label);
+    //positionLabel.setFont(font);
     positionLabel.setText("0.0, 0.0, 0.0");
     hbox->addWidget(&positionLabel);
     hbox->addStretch();
@@ -137,6 +153,9 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     prevButton.sigClicked().connect(boost::bind(&JVRCScoreViewImpl::onNextOrPrevButtonClicked, this, -1));
     hbox->addWidget(&prevButton, 0);
 
+    taskLabel.setFrameStyle(QFrame::Box|QFrame::Sunken);
+    taskLabel.setLineWidth(1);
+    taskLabel.setMidLineWidth(1);
     taskLabel.setAlignment(Qt::AlignCenter);
     hbox->addWidget(&taskLabel, 1);
 
@@ -146,8 +165,19 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     hbox->addWidget(&nextButton, 0);
     vbox->addLayout(hbox);
 
-    vbox->addLayout(&buttonBox1);
-    vbox->addLayout(&buttonBox2);
+    hbox = new QHBoxLayout();
+    QFrame* frame = new QFrame;
+    frame->setFrameStyle(QFrame::Box|QFrame::Sunken);
+    buttonVBox.setContentsMargins(4, 4, 4, 4);
+    buttonVBox.addLayout(&buttonHBox1);
+    buttonVBox.addLayout(&buttonHBox2);
+    buttonVBoxSpacer = new QSpacerItem(0, 0);
+    buttonVBox.addSpacerItem(buttonVBoxSpacer);
+    frame->setLayout(&buttonVBox);
+    hbox->addSpacing(4);
+    hbox->addWidget(frame);
+    hbox->addSpacing(4);
+    vbox->addLayout(hbox);
 
     eventList.setColumnCount(3);
     eventList.setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -239,6 +269,8 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
         delete buttons[i];
     }
     buttons.clear();
+
+    bool isButtonBox2Used = false;
     
     if(taskIndex >= taskInfo->numTasks()){
         taskLabel.setText("");
@@ -246,7 +278,7 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 
     } else {
         JVRCTask* task = taskInfo->task(taskIndex);
-        taskLabel.setText(task->name().c_str());
+        taskLabel.setText(QString("Task ") + task->name().c_str());
         const int n = task->numEvents();
         for(int i=0; i < n; ++i){
             JVRCEvent* event = task->event(i);
@@ -254,14 +286,27 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
             button->sigClicked().connect(
                 boost::bind(&JVRCScoreViewImpl::onEventButtonClicked, this, i));
             if(event->level() == 0){
-                buttonBox1.addWidget(button);
+                buttonHBox1.addWidget(button);
             } else {
-                buttonBox2.addWidget(button);
+                buttonHBox2.addWidget(button);
+                isButtonBox2Used = true;
             }
             buttons.push_back(button);
         }
         currentTaskIndex = taskIndex;
     }
+
+    if(isButtonBox2Used){
+        buttonVBoxSpacer->changeSize(0, 0);
+    } else {
+        if(!buttons.empty()){
+            int h = buttons.front()->sizeHint().height() + buttonVBox.spacing();
+            buttonVBoxSpacer->changeSize(0, h);
+        }
+    }
+
+    prevButton.setEnabled(currentTaskIndex > 0);
+    nextButton.setEnabled(currentTaskIndex < taskInfo->numTasks() - 1);
 }
 
 
