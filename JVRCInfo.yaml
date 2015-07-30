@@ -1,0 +1,112 @@
+
+tasks:
+  - name: O1
+    events:
+      - type: start
+        label: Start (1)
+      #- type: target
+      #  maxCount: 10
+      - type: goal
+        label: Goal (2)
+  - name: O2
+    events:
+      - type: start
+        label: Start (1)
+      #- type: target
+      #  maxCount: 10
+      - type: goal
+        label: Goal (2)
+  - name: R1
+    events:
+      - type: start
+        label: Start (1)
+      - type: gate
+        label: Gate 2
+      - type: gate
+        label: Gate 3
+      - type: goal
+        label: Goal (4)
+  - name: R2_L
+    events:
+      - type: start
+        label: Start (1)
+      #- type: target
+      #  maxCount: 4
+      - type: goal
+        label: Goal (2)
+  - name: R2_M
+    events:
+      - type: start
+        label: Start (1)
+      #- type: target
+      #  maxCount: 5
+      - type: goal
+        label: Goal (2)
+  #- name: R2-3
+  #  events:
+  #    - type: Report
+  #      label: Positions
+  #    - type: Report
+  #      label: 3D data
+  - name: R3_AB
+    events:
+      - type: start
+        label: Start (1)
+      - type: gate
+        label: Gate 2
+      - type: goal
+        label: Goal (3)
+  - name: R3_C
+    events:
+      - type: start
+        label: Start (1)
+      - type: goal
+        label: Goal (2)
+  - name: R4_A
+    events:
+      - type: start
+        label: Start (1)
+      #- type: target
+      - type: goal
+        label: Goal (2)
+  - name: R4_B
+    events:
+      - type: start
+        label: Start (1)
+      #- type: target
+      - type: goal
+        label: Goal (2)
+  - name: R5
+    events:
+      - type: start
+        label: Start (1)
+      - type: obstacle
+        label: Obstacle
+        maxCount: 5
+      - type: goal
+        label: Goal (2)
+  - name: R6
+    events:
+      - type: start
+        label: Start (1)
+      - type: action
+        label: Door
+        level: 1
+      - type: action
+        label: Hose
+        level: 1
+      - type: action
+        label: Nozzle
+        level: 1
+      - type: action
+        label: Connect
+        level: 1
+      - type: action
+        label: Valve
+        level: 1
+      - type: goal
+        label: Goal (2)
+
+        
+        
+      
