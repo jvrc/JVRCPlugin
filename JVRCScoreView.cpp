@@ -54,6 +54,8 @@ class EventItem : public QTableWidgetItem
 public:
     JVRCEventRecordPtr record;
     EventItem(const QString& text, JVRCEventRecord* record = 0) : QTableWidgetItem(text), record(record) {
+        setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        //setFlags(Qt::ItemIsEnabled I Qt::temIsSelectable | Qt::ItemIsEditable);
         setTextAlignment(Qt::AlignCenter);
     }
 };
