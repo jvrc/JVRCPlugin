@@ -12,7 +12,9 @@
 #include <QLabel>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QKeyEvent>
 #include <boost/bind.hpp>
+#include <set>
 #include <cmath>
 #include <iostream>
 #include "gettext.h"
@@ -41,7 +43,10 @@ QString toTimeString(double time)
 class EventListWidget : public QTableWidget
 {
 public:
+    EventListWidget(JVRCScoreViewImpl* impl) : scoreViewImpl(impl) { }
     virtual void keyPressEvent(QKeyEvent* event);
+
+    JVRCScoreViewImpl* scoreViewImpl;
 };
 
 class EventItem : public QTableWidgetItem
@@ -67,7 +72,6 @@ public:
     JVRCTaskInfoPtr taskInfo;
     int currentTaskIndex;
 
-    QVBoxLayout* topVBox;
     QLabel scoreLabel;
     QLabel timeLabel;
     QLabel positionLabel;
@@ -88,6 +92,7 @@ public:
     void updateTasks();
     void setCurrentTask(int taskIndex);
     void onEventButtonClicked(int index);
+    void removeSelectedEvents();
 };
 
 }
@@ -107,15 +112,18 @@ JVRCScoreView::JVRCScoreView()
 
 
 JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
+    : eventList(this)
 {
     self->setDefaultLayoutArea(View::LEFT_BOTTOM);
     self->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     
     QVBoxLayout* vbox = new QVBoxLayout();
-
     QLabel* label;
     QFont font = scoreLabel.font();
     font.setPointSize(font.pointSize() + 6);
+
+    QVBoxLayout* panelVBox = new QVBoxLayout();
+    panelVBox->setContentsMargins(4, 4, 4, 0);
 
     QHBoxLayout* hbox = new QHBoxLayout();
     label = new QLabel("Score: ");
@@ -125,7 +133,7 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     scoreLabel.setText("0");
     hbox->addWidget(&scoreLabel);
     hbox->addStretch();
-    vbox->addLayout(hbox);
+    panelVBox->addLayout(hbox);
 
     hbox = new QHBoxLayout();
     label = new QLabel("Time: ");
@@ -135,17 +143,15 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     timeLabel.setText("0:00.00");
     hbox->addWidget(&timeLabel);
     hbox->addStretch();
-    vbox->addLayout(hbox);
+    panelVBox->addLayout(hbox);
 
     hbox = new QHBoxLayout();
     label = new QLabel("Position: ");
-    //label->setFont(font);
     hbox->addWidget(label);
-    //positionLabel.setFont(font);
     positionLabel.setText("0.0, 0.0, 0.0");
     hbox->addWidget(&positionLabel);
     hbox->addStretch();
-    vbox->addLayout(hbox);
+    panelVBox->addLayout(hbox);
 
     hbox = new QHBoxLayout();
     prevButton.setText("<");
@@ -163,9 +169,8 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     nextButton.setToolTip(_("Skip to the next task"));
     nextButton.sigClicked().connect(boost::bind(&JVRCScoreViewImpl::onNextOrPrevButtonClicked, this, +1));
     hbox->addWidget(&nextButton, 0);
-    vbox->addLayout(hbox);
+    panelVBox->addLayout(hbox);
 
-    hbox = new QHBoxLayout();
     QFrame* frame = new QFrame;
     frame->setFrameStyle(QFrame::Box|QFrame::Sunken);
     buttonVBox.setContentsMargins(4, 4, 4, 4);
@@ -174,10 +179,9 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     buttonVBoxSpacer = new QSpacerItem(0, 0);
     buttonVBox.addSpacerItem(buttonVBoxSpacer);
     frame->setLayout(&buttonVBox);
-    hbox->addSpacing(4);
-    hbox->addWidget(frame);
-    hbox->addSpacing(4);
-    vbox->addLayout(hbox);
+    panelVBox->addWidget(frame);
+
+    vbox->addLayout(panelVBox);
 
     eventList.setColumnCount(3);
     eventList.setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -329,7 +333,36 @@ void JVRCScoreViewImpl::onEventButtonClicked(int index)
 }
 
 
+void JVRCScoreViewImpl::removeSelectedEvents()
+{
+    set<int> rows;
+    QList<QTableWidgetItem*> selected = eventList.selectedItems();
+    for(int i=0; i < selected.size(); ++i){
+        QTableWidgetItem* item = selected[i];
+        rows.insert(item->row());
+    }
+    for(set<int>::reverse_iterator p = rows.rbegin(); p != rows.rend(); ++p){
+        eventList.removeRow(*p);
+    }
+}
+
+
 void EventListWidget::keyPressEvent(QKeyEvent* event)
 {
-    QTableWidget::keyPressEvent(event);
+    bool handled = false;
+    
+    switch(event->key()){
+
+    case Qt::Key_Delete:
+        scoreViewImpl->removeSelectedEvents();
+        handled = true;
+        break;
+
+    defaut:
+        break;
+    }
+
+    if(!handled){
+        QTableWidget::keyPressEvent(event);
+    }
 }
