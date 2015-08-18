@@ -5,6 +5,7 @@
 
 #include "JVRCManagerItem.h"
 #include "JVRCTaskInfo.h"
+#include "SphereMarkerDevice.h"
 #include <cnoid/SimulatorItem>
 #include <cnoid/WorldItem>
 #include <cnoid/BodyItem>
@@ -72,17 +73,22 @@ public:
     JVRCTaskInfoPtr taskInfo;
     Signal<void()> sigTaskInfoUpdated;
 
+    ScopedConnection worldItemConnection;
     WorldItem* worldItem;
     BodyItem* robotItem;
     Signal<void()> sigRobotDetected;
-
+    BodyItem* spreaderItem;
+    SimulationBody* simSpreader;
+    
     JVRCManagerItemImpl(JVRCManagerItem* self);
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
     ~JVRCManagerItemImpl();
-    void detectRobotItem();
+    void initialize();
+    void onPositionChanged();
+    void onItemsInWorldChanged();
+    void initializeSpreader(BodyItem* spreaderItem);
     bool initializeSimulation(SimulatorItem* simulatorItem);
-    void onPreDynamics();
-    void onPostDynamics();
+    void checkSpreaderPosition();
     void finalizeSimulation();
     void doPutProperties(PutPropertyFunction& putProperty);
     bool store(Archive& archive);
@@ -118,11 +124,7 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self)
     : self(self),
       os(MessageView::instance()->cout())
 {
-    simulatorItem = 0;
-    worldItem = 0;
-    robotItem = 0;
-    isEnabled = true;
-    taskInfo = new JVRCTaskInfo();
+    initialize();
 }
 
 
@@ -137,11 +139,31 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
     : self(self),
       os(MessageView::instance()->cout())
 {
+    initialize();
+    isEnabled = org.isEnabled;
+}
+
+
+void JVRCManagerItemImpl::initialize()
+{
     simulatorItem = 0;
     worldItem = 0;
     robotItem = 0;
-    isEnabled = org.isEnabled;
+    spreaderItem = 0;
+    isEnabled = true;
     taskInfo = new JVRCTaskInfo();
+}
+
+
+JVRCManagerItem::~JVRCManagerItem()
+{
+    delete impl;
+}
+
+
+JVRCManagerItemImpl::~JVRCManagerItemImpl()
+{
+
 }
 
 
@@ -169,37 +191,42 @@ ItemPtr JVRCManagerItem::doDuplicate() const
 }
 
 
-JVRCManagerItem::~JVRCManagerItem()
-{
-    delete impl;
-}
-
-
-JVRCManagerItemImpl::~JVRCManagerItemImpl()
-{
-
-}
-
-
 void JVRCManagerItem::onPositionChanged()
 {
-    impl->detectRobotItem();
+    impl->onPositionChanged();
 }
 
 
-void JVRCManagerItemImpl::detectRobotItem()
+void JVRCManagerItemImpl::onPositionChanged()
 {
+    worldItemConnection.disconnect();
     worldItem = self->findOwnerItem<WorldItem>();
     if(worldItem){
-        ItemList<BodyItem> bodyItems;
-        BodyItem* bodyItem = 0;
-        if(bodyItems.extractChildItems(worldItem)){
-            bodyItem = bodyItems.front();
-        }
-        if(bodyItem != robotItem){
-            robotItem = bodyItem;
-            sigRobotDetected();
-        }
+        /*
+        worldItemConnection.reset(
+            worldItem->sigSubTreeChanged().connect(
+                boost::bind(&JVRCManagerItemImpl::onItemsInWorldChanged, this)));
+        onItemsInWorldChanged();
+        */
+    }
+}
+
+
+void JVRCManagerItemImpl::onItemsInWorldChanged()
+{
+    ItemList<BodyItem> bodyItems;
+    BodyItem* bodyItem = 0;
+    if(bodyItems.extractChildItems(worldItem)){
+        bodyItem = bodyItems.front();
+    }
+    if(bodyItem != robotItem){
+        robotItem = bodyItem;
+        sigRobotDetected();
+    }
+
+    BodyItem* spreaderItem = bodyItems.find("Task_R4A-spreader");
+    if(spreaderItem){
+        initializeSpreader(spreaderItem);
     }
 }
 
@@ -213,6 +240,20 @@ BodyItem* JVRCManagerItem::robotItem()
 SignalProxy<void()> JVRCManagerItem::sigRobotDetected()
 {
     return impl->sigRobotDetected;
+}
+
+
+void JVRCManagerItemImpl::initializeSpreader(BodyItem* spreaderItem)
+{
+    Body* spreader = spreaderItem->body();
+    SphereMarkerDevice* sphereMarker = spreader->findDevice<SphereMarkerDevice>("SphereMarker");
+    if(!sphereMarker){
+        sphereMarker = new SphereMarkerDevice();
+        sphereMarker->setId(0);
+        sphereMarker->setName("SphereMarker");
+        sphereMarker->setLink(spreader->rootLink());
+        spreader->addDevice(sphereMarker);
+    }
 }
 
 
@@ -235,17 +276,20 @@ bool JVRCManagerItem::initializeSimulation(SimulatorItem* simulatorItem)
 bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 {
     this->simulatorItem = simulatorItem;
+
+    if(spreaderItem){
+        simSpreader = simulatorItem->findSimulationBody(spreaderItem);
+        if(simSpreader){
+            simulatorItem->addPostDynamicsFunction(
+                boost::bind(&JVRCManagerItemImpl::checkSpreaderPosition, this));
+        }
+    }
+    
     return true;
 }
 
 
-void JVRCManagerItemImpl::onPreDynamics()
-{
-    
-}
-
-
-void JVRCManagerItemImpl::onPostDynamics()
+void JVRCManagerItemImpl::checkSpreaderPosition()
 {
 
 }
@@ -259,7 +303,7 @@ void JVRCManagerItem::finalizeSimulation()
 
 void JVRCManagerItemImpl::finalizeSimulation()
 {
-
+    simSpreader = 0;
 }
 
 

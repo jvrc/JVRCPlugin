@@ -16,6 +16,7 @@ set(sources
   JVRCManagerItem.cpp
   #JVRCBar.cpp
   JVRCScoreView.cpp
+  SphereMarkerDevice.cpp
 )
 
 set(target CnoidJVRCPlugin)
