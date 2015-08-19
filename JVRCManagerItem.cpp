@@ -86,7 +86,6 @@ public:
     void initialize();
     void onPositionChanged();
     void onItemsInWorldChanged();
-    void initializeSpreader(BodyItem* spreaderItem);
     bool initializeSimulation(SimulatorItem* simulatorItem);
     void checkSpreaderPosition();
     void finalizeSimulation();
@@ -202,12 +201,9 @@ void JVRCManagerItemImpl::onPositionChanged()
     worldItemConnection.disconnect();
     worldItem = self->findOwnerItem<WorldItem>();
     if(worldItem){
-        /*
         worldItemConnection.reset(
             worldItem->sigSubTreeChanged().connect(
                 boost::bind(&JVRCManagerItemImpl::onItemsInWorldChanged, this)));
-        onItemsInWorldChanged();
-        */
     }
 }
 
@@ -226,7 +222,18 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
 
     BodyItem* spreaderItem = bodyItems.find("Task_R4A-spreader");
     if(spreaderItem){
-        initializeSpreader(spreaderItem);
+        os << (format(_("The spreader \"%1%\" of the task R4A has been detected.")) % spreaderItem->name()) << endl;
+        Body* spreader = spreaderItem->body();
+        SphereMarkerDevice* sphereMarker = spreader->findDevice<SphereMarkerDevice>("SphereMarker");
+        if(!sphereMarker){
+            sphereMarker = new SphereMarkerDevice();
+            sphereMarker->setId(0);
+            sphereMarker->setName("SphereMarker");
+            sphereMarker->setLink(spreader->rootLink());
+            spreader->addDevice(sphereMarker);
+            os << format(_("A Sphere marker device to show the hits of the spreader has been set to the spreader model.")) << endl;
+            spreaderItem->notifyModelUpdate();
+        }
     }
 }
 
@@ -240,20 +247,6 @@ BodyItem* JVRCManagerItem::robotItem()
 SignalProxy<void()> JVRCManagerItem::sigRobotDetected()
 {
     return impl->sigRobotDetected;
-}
-
-
-void JVRCManagerItemImpl::initializeSpreader(BodyItem* spreaderItem)
-{
-    Body* spreader = spreaderItem->body();
-    SphereMarkerDevice* sphereMarker = spreader->findDevice<SphereMarkerDevice>("SphereMarker");
-    if(!sphereMarker){
-        sphereMarker = new SphereMarkerDevice();
-        sphereMarker->setId(0);
-        sphereMarker->setName("SphereMarker");
-        sphereMarker->setLink(spreader->rootLink());
-        spreader->addDevice(sphereMarker);
-    }
 }
 
 

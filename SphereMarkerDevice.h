@@ -28,12 +28,12 @@ public:
     void on(bool on) { on_ = on; }
     const Vector3f& color() const { return color_; }
     void setColor(const Vector3f& c) { color_ = c; }
-    double size() const { return size_; }
-    void setSize(double s) { size_ = s; }
+    double radius() const { return radius_; }
+    void setRadius(double r) { radius_ = r; }
         
 private:
     Vector3f color_;
-    double size_;
+    double radius_;
     bool on_;
 };
 
