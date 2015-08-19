@@ -17,15 +17,24 @@ struct SceneSphereMarkerDevice : public SceneDevice
 {
     SphereMarkerDevice* device;
     SphereMarkerPtr marker;
+    bool isShown;
 public:
-    SceneSphereMarkerDevice(Device* device)
-        : SceneDevice(device),
-          device(static_cast<SphereMarkerDevice*>(device)){
-        marker = new SphereMarker;
-        addChild(marker);
+    SceneSphereMarkerDevice(Device* device_)
+        : SceneDevice(device_),
+          device(static_cast<SphereMarkerDevice*>(device_)){
+        marker = new SphereMarker(device->radius(), device->color(), device->transparency());
+        isShown = false;
         setSceneUpdateFunction(boost::bind(&SceneSphereMarkerDevice::updateScene, this));
     }
     void updateScene(){
+        if(device->on() != isShown){
+            if(device->on()){
+                addChildOnce(marker);
+            } else {
+                removeChild(marker);
+            }
+            isShown = device->on();
+        }
         marker->setRadius(device->radius());
         marker->setColor(device->color());
     }
