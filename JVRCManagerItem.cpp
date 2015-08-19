@@ -230,6 +230,11 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             sphereMarker->setId(0);
             sphereMarker->setName("SphereMarker");
             sphereMarker->setLink(spreader->rootLink());
+            sphereMarker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
+            sphereMarker->on(false);
+            sphereMarker->setRadius(0.12);
+            sphereMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
+            sphereMarker->setTransparency(0.4f);
             spreader->addDevice(sphereMarker);
             os << format(_("A Sphere marker device to show the hits of the spreader has been set to the spreader model.")) << endl;
             spreaderItem->notifyModelUpdate();

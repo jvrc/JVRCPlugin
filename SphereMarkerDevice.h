@@ -26,14 +26,17 @@ public:
 
     bool on() const { return on_; }
     void on(bool on) { on_ = on; }
-    const Vector3f& color() const { return color_; }
-    void setColor(const Vector3f& c) { color_ = c; }
     double radius() const { return radius_; }
     void setRadius(double r) { radius_ = r; }
+    const Vector3f& color() const { return color_; }
+    void setColor(const Vector3f& c) { color_ = c; }
+    double transparency() const { return transparency_; }
+    void setTransparency(float t) { transparency_ = t; }
         
 private:
-    Vector3f color_;
     double radius_;
+    Vector3f color_;
+    float transparency_;
     bool on_;
 };
 
