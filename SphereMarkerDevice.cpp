@@ -12,27 +12,36 @@ using namespace cnoid;
 
 namespace {
 
-void updateSphereMarker(SphereMarkerDevice* device, SphereMarker* marker)
+struct SceneSphereMarkerDevice : public SceneDevice
 {
-    marker->setRadius(device->radius());
-    marker->setColor(device->color());
-}
-
-SgNode* createSphereMarkerDevice(SceneDevice* sdev)
-{
-    SphereMarkerDevice* device = sdev->device<SphereMarkerDevice>();
-    SphereMarker* marker = new SphereMarker;
-    sdev->setSceneUpdateFunction(boost::bind(updateSphereMarker, device, marker));
-    return marker;
-}
-
-struct DeviceNodeFactoryRegistration
-{
-    DeviceNodeFactoryRegistration(){
-        SceneDevice::registerDeviceNodeFactory<SphereMarkerDevice>(createSphereMarkerDevice);
+    SphereMarkerDevice* device;
+    SphereMarkerPtr marker;
+public:
+    SceneSphereMarkerDevice(Device* device)
+        : SceneDevice(device),
+          device(static_cast<SphereMarkerDevice*>(device)){
+        marker = new SphereMarker;
+        addChild(marker);
+        setSceneUpdateFunction(boost::bind(&SceneSphereMarkerDevice::updateScene, this));
+    }
+    void updateScene(){
+        marker->setRadius(device->radius());
+        marker->setColor(device->color());
     }
 };
-DeviceNodeFactoryRegistration deviceNodeFactoryRegistration;
+        
+SceneDevice* createSceneSphereMarkerDevice(Device* device)
+{
+    return new SceneSphereMarkerDevice(device);
+}
+
+struct SceneDeviceFactoryRegistration
+{
+    SceneDeviceFactoryRegistration(){
+        SceneDevice::registerSceneDeviceFactory<SphereMarkerDevice>(createSceneSphereMarkerDevice);
+    }
+};
+SceneDeviceFactoryRegistration sceneDeviceFactoryRegistration;
 
 }
     
