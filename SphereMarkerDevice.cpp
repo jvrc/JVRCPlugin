@@ -8,6 +8,7 @@
 #include <cnoid/SceneMarker>
 #include <boost/bind.hpp>
 
+using namespace std;
 using namespace cnoid;
 
 namespace {
@@ -21,7 +22,7 @@ void updateSphereMarker(SphereMarkerDevice* device, SphereMarker* marker)
 SgNode* createSphereMarkerDevice(SceneDevice* sdev)
 {
     SphereMarkerDevice* device = sdev->device<SphereMarkerDevice>();
-    SphereMarker* marker = new SphereMarker;
+    SphereMarker* marker = new SphereMarker(device->radius(), device->color(), device->transparency());
     sdev->setSceneUpdateFunction(boost::bind(updateSphereMarker, device, marker));
     return marker;
 }
@@ -39,17 +40,19 @@ DeviceNodeFactoryRegistration deviceNodeFactoryRegistration;
 
 SphereMarkerDevice::SphereMarkerDevice()
 {
-    on_ = false;
-    color_ << 1.0f, 1.0f, 0.0f;
+    on_ = true;
     radius_ = 0.1;
+    color_ << 1.0f, 1.0f, 0.0f;
+    transparency_ = 0.5f;
 }
 
 
 void SphereMarkerDevice::copyStateFrom(const SphereMarkerDevice& other)
 {
     on_ = other.on_;
-    color_ = other.color_;
     radius_ = other.radius_;
+    color_ = other.color_;
+    transparency_ = other.transparency_;
 }
 
 
