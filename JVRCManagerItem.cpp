@@ -77,8 +77,12 @@ public:
     WorldItem* worldItem;
     BodyItem* robotItem;
     Signal<void()> sigRobotDetected;
+
     BodyItem* spreaderItem;
-    SimulationBody* simSpreader;
+    SphereMarkerDevicePtr spreaderHitMarker;
+    Body* spreader;
+    Body* door;
+    std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
     
     JVRCManagerItemImpl(JVRCManagerItem* self);
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
@@ -87,7 +91,7 @@ public:
     void onPositionChanged();
     void onItemsInWorldChanged();
     bool initializeSimulation(SimulatorItem* simulatorItem);
-    void checkSpreaderPosition();
+    void checkHitBetweenSpreaderAndDoor();
     void finalizeSimulation();
     void doPutProperties(PutPropertyFunction& putProperty);
     bool store(Archive& archive);
@@ -151,6 +155,8 @@ void JVRCManagerItemImpl::initialize()
     spreaderItem = 0;
     isEnabled = true;
     taskInfo = new JVRCTaskInfo();
+
+    doorTargetPoints.push_back(Vector3(5.154, 9.012, 1.090));
 }
 
 
@@ -219,24 +225,24 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
         robotItem = bodyItem;
         sigRobotDetected();
     }
-
-    BodyItem* spreaderItem = bodyItems.find("Task_R4A-spreader");
+    
+    spreaderItem = worldItem->findItem<BodyItem>("Task_R4A-spreader");
     if(spreaderItem){
         os << (format(_("The spreader \"%1%\" of the task R4A has been detected.")) % spreaderItem->name()) << endl;
         Body* spreader = spreaderItem->body();
-        SphereMarkerDevice* sphereMarker = spreader->findDevice<SphereMarkerDevice>("SphereMarker");
-        if(!sphereMarker){
-            sphereMarker = new SphereMarkerDevice();
-            sphereMarker->setId(0);
-            sphereMarker->setName("SphereMarker");
-            sphereMarker->setLink(spreader->rootLink());
-            sphereMarker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
-            sphereMarker->on(false);
-            sphereMarker->setRadius(0.12);
-            sphereMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
-            sphereMarker->setTransparency(0.4f);
-            spreader->addDevice(sphereMarker);
-            os << format(_("A Sphere marker device to show the hits of the spreader has been set to the spreader model.")) << endl;
+        SphereMarkerDevice* spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
+        if(!spreaderHitMarker){
+            spreaderHitMarker = new SphereMarkerDevice();
+            spreaderHitMarker->setId(0);
+            spreaderHitMarker->setName("HitMarker");
+            spreaderHitMarker->setLink(spreader->rootLink());
+            spreaderHitMarker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
+            spreaderHitMarker->on(false);
+            spreaderHitMarker->setRadius(0.12);
+            spreaderHitMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
+            spreaderHitMarker->setTransparency(0.4f);
+            spreader->addDevice(spreaderHitMarker);
+            os <<_("A virtual device to visualize the hits of the spreader's blades has been added to \"Task_R4A_spreader.\"") << endl;
             spreaderItem->notifyModelUpdate();
         }
     }
@@ -276,10 +282,20 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     this->simulatorItem = simulatorItem;
 
     if(spreaderItem){
-        simSpreader = simulatorItem->findSimulationBody(spreaderItem);
-        if(simSpreader){
-            simulatorItem->addPostDynamicsFunction(
-                boost::bind(&JVRCManagerItemImpl::checkSpreaderPosition, this));
+        BodyItem* doorItem = worldItem->findItem<BodyItem>("Task_R4A-Door-Task_R4A-visual");
+        if(doorItem){
+            SimulationBody* simDoor = simulatorItem->findSimulationBody(doorItem);
+            SimulationBody* simSpreader = simulatorItem->findSimulationBody(spreaderItem);
+            if(simDoor && simSpreader){
+                door = simDoor->body();
+                spreader = simSpreader->body();
+                spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
+                if(spreaderHitMarker){
+                    os << "The spreader and the car door of Task R4A has been detected." << endl;
+                    simulatorItem->addPostDynamicsFunction(
+                        boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
+                }
+            }
         }
     }
     
@@ -287,9 +303,28 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 }
 
 
-void JVRCManagerItemImpl::checkSpreaderPosition()
+void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 {
-
+    bool isHitting = false;
+    Link* spreaderLink = spreader->rootLink();
+    const Vector3 p = spreaderLink->T() * Vector3(0.165, 0.0, 0.0);
+    Link* doorRoot = door->rootLink();
+    for(size_t i=0; i < doorTargetPoints.size(); ++i){
+        const Vector3 q = doorRoot->T() * doorTargetPoints[i];
+        isHitting = (p - q).norm() < 0.05;
+        if(isHitting){
+            break;
+        }
+    }
+    if(isHitting != spreaderHitMarker->on()){
+        spreaderHitMarker->on(isHitting);
+        spreaderHitMarker->notifyStateChange();
+        if(isHitting){
+            os << "The spreader is hiting to a target point." << endl;
+        } else {
+            os << "The spreader is not hitting to any target points." << endl;
+        }
+    }
 }
 
 
@@ -301,7 +336,7 @@ void JVRCManagerItem::finalizeSimulation()
 
 void JVRCManagerItemImpl::finalizeSimulation()
 {
-    simSpreader = 0;
+
 }
 
 
