@@ -24,6 +24,9 @@ using boost::format;
 
 namespace {
 
+const double minMarkerRadius = 0.01;
+const double maxMarkerRadius = 0.15;
+
 JVRCManagerItemPtr instance_;
 
 string getNameListString(const vector<string>& names)
@@ -238,7 +241,7 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             spreaderHitMarker->setLink(spreader->rootLink());
             spreaderHitMarker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
             spreaderHitMarker->on(false);
-            spreaderHitMarker->setRadius(0.12);
+            spreaderHitMarker->setRadius(minMarkerRadius);
             spreaderHitMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
             spreaderHitMarker->setTransparency(0.4f);
             spreader->addDevice(spreaderHitMarker);
@@ -291,6 +294,7 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
                 spreader = simSpreader->body();
                 spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
                 if(spreaderHitMarker){
+                    spreaderHitMarker->setRadius(minMarkerRadius);
                     os << "The spreader and the car door of Task R4A has been detected." << endl;
                     simulatorItem->addPostDynamicsFunction(
                         boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
@@ -316,14 +320,26 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
             break;
         }
     }
+    bool changed = false;
+    if(isHitting){
+        double r = spreaderHitMarker->radius() + 0.0005;
+        if(r > maxMarkerRadius){
+            r = minMarkerRadius;
+        }
+        spreaderHitMarker->setRadius(r);
+        changed = true;
+    }
     if(isHitting != spreaderHitMarker->on()){
         spreaderHitMarker->on(isHitting);
-        spreaderHitMarker->notifyStateChange();
         if(isHitting){
             os << "The spreader is hiting to a target point." << endl;
         } else {
             os << "The spreader is not hitting to any target points." << endl;
         }
+        changed = true;
+    }
+    if(changed){
+        spreaderHitMarker->notifyStateChange();
     }
 }
 
