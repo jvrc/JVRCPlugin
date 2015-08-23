@@ -86,6 +86,8 @@ public:
     Body* spreader;
     Body* door;
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
+    int hitCount;
+    bool isDoorDestroyed;
     
     JVRCManagerItemImpl(JVRCManagerItem* self);
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
@@ -294,6 +296,9 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
                 spreader = simSpreader->body();
                 spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
                 if(spreaderHitMarker){
+                    hitCount = 0;
+                    isDoorDestroyed = false;
+                    simDoor->setActive(true);
                     spreaderHitMarker->setRadius(minMarkerRadius);
                     os << "The spreader and the car door of Task R4A has been detected." << endl;
                     simulatorItem->addPostDynamicsFunction(
@@ -309,6 +314,10 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 
 void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 {
+    if(isDoorDestroyed){
+        return;
+    }
+    
     bool isHitting = false;
     Link* spreaderLink = spreader->rootLink();
     const Vector3 p = spreaderLink->T() * Vector3(0.165, 0.0, 0.0);
@@ -324,6 +333,12 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
     if(isHitting){
         double r = spreaderHitMarker->radius() + 0.0005;
         if(r > maxMarkerRadius){
+            ++hitCount;
+            if(hitCount == 10){
+                doorRoot->T().translation().z() -= 2.0;
+                isDoorDestroyed = true;
+                isHitting = false;
+            }
             r = minMarkerRadius;
         }
         spreaderHitMarker->setRadius(r);
