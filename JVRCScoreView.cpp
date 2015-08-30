@@ -70,6 +70,7 @@ public:
     JVRCScoreViewImpl(JVRCScoreView* self);
     ~JVRCScoreViewImpl();
 
+    JVRCManagerItem* manager;
     BodyItem* robotItem;
     ScopedConnection robotConnection;
     JVRCTaskInfoPtr taskInfo;
@@ -201,7 +202,7 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     vbox->addWidget(&eventList);
     self->setLayout(vbox);
 
-    JVRCManagerItem* manager = JVRCManagerItem::instance();
+    manager = JVRCManagerItem::instance();
 
     robotItem = 0;
     manager->sigRobotDetected().connect(
@@ -240,7 +241,7 @@ bool JVRCScoreViewImpl::onTimeChanged(double time)
 void JVRCScoreViewImpl::updateRobot()
 {
     robotConnection.disconnect();
-    robotItem = JVRCManagerItem::instance()->robotItem();
+    robotItem = manager->robotItem();
     if(robotItem){
         robotConnection.reset(
             robotItem->sigKinematicStateChanged().connect(
@@ -252,7 +253,7 @@ void JVRCScoreViewImpl::updateRobot()
 
 void JVRCScoreViewImpl::onRobotPositionChanged()
 {
-    Vector3 p = robotItem->body()->rootLink()->translation();
+    const Vector3 p = manager->robotMarkerPosition().translation();
     positionLabel.setText(QString("%1, %2, %3").arg(p.x(), 5, 'f', 2).arg(p.y(), 5, 'f', 2).arg(p.z(), 5, 'f', 2));
 }
 

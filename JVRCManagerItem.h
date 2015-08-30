@@ -8,11 +8,11 @@
 
 #include "JVRCTaskInfo.h"
 #include <cnoid/SubSimulatorItem>
+#include <cnoid/BodyItem>
 
 namespace cnoid {
 
 class JVRCManagerItemImpl;
-class BodyItem;
 
 class CNOID_EXPORT JVRCManagerItem : public SubSimulatorItem
 {
@@ -29,6 +29,7 @@ public:
     SignalProxy<void()> sigTaskInfoUpdated();
 
     BodyItem* robotItem();
+    Position robotMarkerPosition() const;
     SignalProxy<void()> sigRobotDetected();
         
     virtual bool isEnabled();

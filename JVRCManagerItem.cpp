@@ -6,9 +6,9 @@
 #include "JVRCManagerItem.h"
 #include "JVRCTaskInfo.h"
 #include "SphereMarkerDevice.h"
+#include "SceneNodeFinder.h"
 #include <cnoid/SimulatorItem>
 #include <cnoid/WorldItem>
-#include <cnoid/BodyItem>
 #include <cnoid/ItemManager>
 #include <cnoid/MessageView>
 #include <cnoid/Archive>
@@ -78,7 +78,10 @@ public:
 
     ScopedConnection worldItemConnection;
     WorldItem* worldItem;
+
     BodyItem* robotItem;
+    Link* robotMarkerLink;
+    Position robotMarkerLocalPosition;
     Signal<void()> sigRobotDetected;
 
     BodyItem* spreaderItem;
@@ -157,6 +160,7 @@ void JVRCManagerItemImpl::initialize()
     simulatorItem = 0;
     worldItem = 0;
     robotItem = 0;
+    robotMarkerLink = 0;
     spreaderItem = 0;
     isEnabled = true;
     taskInfo = new JVRCTaskInfo();
@@ -227,7 +231,28 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
         bodyItem = bodyItems.front();
     }
     if(bodyItem != robotItem){
-        robotItem = bodyItem;
+        robotItem = 0;
+        robotMarkerLink = 0;
+        if(bodyItem){
+            Body* body = bodyItem->body();
+            SceneNodeFinder finder;
+            SgNode* markerNode = 0;
+            for(int i=0; i < body->numLinks(); ++i){
+                Link* link = body->link(i);
+                markerNode = finder.find(link->visualShape(), "JVRC-Robot-Marker");
+                if(markerNode){
+                    robotItem = bodyItem;
+                    robotMarkerLink = link;
+                    robotMarkerLocalPosition = finder.position();
+                    break;
+                }
+            }
+            if(!markerNode){
+                os << (format(_("Warning: \"%1%\" does not have the JVRC marker.")) % bodyItem->name()) << endl;
+            } else {
+                os << (format(_("JVRC Robot \"%1%\" has been detected.")) % robotItem->name()) << endl;
+            }
+        }
         sigRobotDetected();
     }
     
@@ -257,6 +282,18 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
 BodyItem* JVRCManagerItem::robotItem()
 {
     return impl->robotItem;
+}
+
+
+Position JVRCManagerItem::robotMarkerPosition() const
+{
+    Position T;
+    if(impl->robotMarkerLink){
+        T = impl->robotMarkerLink->T() * impl->robotMarkerLocalPosition;
+    } else {
+        T.setIdentity();
+    }
+    return T;
 }
 
 
