@@ -29,38 +29,6 @@ const double maxMarkerRadius = 0.15;
 
 JVRCManagerItemPtr instance_;
 
-string getNameListString(const vector<string>& names)
-{
-    string nameList;
-    if(!names.empty()){
-        size_t n = names.size() - 1;
-        for(size_t i=0; i < n; ++i){
-            nameList += names[i];
-            nameList += ", ";
-        }
-        nameList += names.back();
-    }
-    return nameList;
-}
-
-bool updateNames(const string& nameListString, string& newNameListString, vector<string>& names)
-{
-    using boost::tokenizer;
-    using boost::char_separator;
-    
-    names.clear();
-    char_separator<char> sep(",");
-    tokenizer< char_separator<char> > tok(nameListString, sep);
-    for(tokenizer< char_separator<char> >::iterator p = tok.begin(); p != tok.end(); ++p){
-        string name = boost::trim_copy(*p);
-        if(!name.empty()){
-            names.push_back(name);
-        }
-    }
-    newNameListString = nameListString;
-    return true;
-}
-
 }
 
 namespace cnoid {
@@ -100,6 +68,8 @@ public:
     void onPositionChanged();
     void onItemsInWorldChanged();
     bool initializeSimulation(SimulatorItem* simulatorItem);
+    static int checkPositionalRelationshipWithGate(
+        Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh);
     void checkRobotMarkerPosition();
     void checkHitBetweenSpreaderAndDoor();
     void finalizeSimulation();
@@ -380,14 +350,43 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 }
 
 
+int JVRCManagerItemImpl::checkPositionalRelationshipWithGate
+(Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh)
+{
+    p.z() = 0.0;
+    
+    if((g2 - g1).dot(p - g1) < 0.0){
+        return 0;
+    }
+    if((g1 - g2).dot(p - g2) < 0.0){
+        return 0;
+    }
+    Vector3 a = g2 - g1;
+    Vector3 c = a.cross(p - g1);
+    double d = c.norm() / a.norm();
+    if(d <= distanceThresh){
+        if(c.z() > 0.0){
+            return -1;
+        } else {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
 void JVRCManagerItemImpl::checkRobotMarkerPosition()
 {
-    const Vector3 gateCenter(2.0, 0.25, 0.0);
-
+    static const Vector3 g1(2.0, -1.1, 0.0);
+    static const Vector3 g2(2.0, 1.7, 0.0);
+    
     if(robotMarker){
         Vector3 p = (robotMarker->link()->T() * robotMarker->T_local()).translation();
-        if((p - gateCenter).norm() < 0.4){
-            robotMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
+        int r = checkPositionalRelationshipWithGate(p, g1, g2, 0.25);
+        if(r < 0){
+            robotMarker->setColor(Vector3f(0.0f, 1.0f, 0.0f));
+        } else if(r > 0){
+            robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
         } else {
             robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
         }

@@ -68,11 +68,11 @@ tasks:
     events:
       - type: start
         label: Start (1)
-        location: [ [ 2.0, 1.1 ], [ 2.0, 1.7 ] ]
+        location: [ [ 2.0, -1.1 ], [ 2.0, 1.7 ] ]
       #- type: target
       - type: goal
         label: Goal (2)
-        location: [ [ 14.0, 1.1 ], [ 14.0, 1.7 ] ]
+        location: [ [ 14.0, -1.1 ], [ 14.0, 1.7 ] ]
   - name: R4_B
     events:
       - type: start
