@@ -1,9 +1,9 @@
 DEF JVRC-Robot-Marker Shape {
-  geometry Shpere { radius 0.05 }
+  geometry Sphere { radius 0.025 }
   appearance Appearance {
     material Material {
       diffuseColor 1.0 0.0 0.0
-      emmisiveColor 1.0 0.0 0.0
+      emissiveColor 1.0 0.0 0.0
     }
   }
 }
