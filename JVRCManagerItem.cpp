@@ -83,6 +83,7 @@ public:
     Link* robotMarkerLink;
     Position robotMarkerLocalPosition;
     Signal<void()> sigRobotDetected;
+    SphereMarkerDevicePtr robotMarker;
 
     BodyItem* spreaderItem;
     SphereMarkerDevicePtr spreaderHitMarker;
@@ -99,6 +100,7 @@ public:
     void onPositionChanged();
     void onItemsInWorldChanged();
     bool initializeSimulation(SimulatorItem* simulatorItem);
+    void checkRobotMarkerPosition();
     void checkHitBetweenSpreaderAndDoor();
     void finalizeSimulation();
     void doPutProperties(PutPropertyFunction& putProperty);
@@ -250,6 +252,21 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             if(!markerNode){
                 os << (format(_("Warning: \"%1%\" does not have the JVRC marker.")) % bodyItem->name()) << endl;
             } else {
+                Body* robot = robotItem->body();
+                SphereMarkerDevice* robotMarker = robot->findDevice<SphereMarkerDevice>("JVRCRobotMarker");
+                if(!robotMarker){
+                    robotMarker = new SphereMarkerDevice();
+                    robotMarker->setId(0);
+                    robotMarker->setName("JVRCRobotMarker");
+                    robotMarker->setLink(robotMarkerLink);
+                    robotMarker->setLocalTranslation(robotMarkerLocalPosition.translation());
+                    robotMarker->on(true);
+                    robotMarker->setRadius(0.055);
+                    robotMarker->setTransparency(0.0);
+                    robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+                    robot->addDevice(robotMarker);
+                    robotItem->notifyModelUpdate();
+                }
                 os << (format(_("JVRC Robot \"%1%\" has been detected.")) % robotItem->name()) << endl;
             }
         }
@@ -260,18 +277,18 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
     if(spreaderItem){
         os << (format(_("The spreader \"%1%\" of the task R4A has been detected.")) % spreaderItem->name()) << endl;
         Body* spreader = spreaderItem->body();
-        SphereMarkerDevice* spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
-        if(!spreaderHitMarker){
-            spreaderHitMarker = new SphereMarkerDevice();
-            spreaderHitMarker->setId(0);
-            spreaderHitMarker->setName("HitMarker");
-            spreaderHitMarker->setLink(spreader->rootLink());
-            spreaderHitMarker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
-            spreaderHitMarker->on(false);
-            spreaderHitMarker->setRadius(minMarkerRadius);
-            spreaderHitMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
-            spreaderHitMarker->setTransparency(0.4f);
-            spreader->addDevice(spreaderHitMarker);
+        SphereMarkerDevice* marker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
+        if(!marker){
+            marker = new SphereMarkerDevice();
+            marker->setId(0);
+            marker->setName("HitMarker");
+            marker->setLink(spreader->rootLink());
+            marker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
+            marker->on(false);
+            marker->setRadius(minMarkerRadius);
+            marker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
+            marker->setTransparency(0.4f);
+            spreader->addDevice(marker);
             os <<_("A virtual device to visualize the hits of the spreader's blades has been added to \"Task_R4A_spreader.\"") << endl;
             spreaderItem->notifyModelUpdate();
         }
@@ -323,6 +340,20 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 {
     this->simulatorItem = simulatorItem;
 
+    robotMarker = 0;
+    if(robotItem){
+        SimulationBody* simRobot = simulatorItem->findSimulationBody(robotItem);
+        if(simRobot){
+            robotMarker = simRobot->body()->findDevice<SphereMarkerDevice>("JVRCRobotMarker");
+            if(robotMarker){
+                robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+                simulatorItem->addPostDynamicsFunction(
+                    boost::bind(&JVRCManagerItemImpl::checkRobotMarkerPosition, this));
+            }
+        }
+    }
+
+    spreader = 0;
     if(spreaderItem){
         BodyItem* doorItem = worldItem->findItem<BodyItem>("Task_R4A-Door-Task_R4A-visual");
         if(doorItem){
@@ -346,6 +377,22 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     }
     
     return true;
+}
+
+
+void JVRCManagerItemImpl::checkRobotMarkerPosition()
+{
+    const Vector3 gateCenter(2.0, 0.25, 0.0);
+
+    if(robotMarker){
+        Vector3 p = (robotMarker->link()->T() * robotMarker->T_local()).translation();
+        if((p - gateCenter).norm() < 0.4){
+            robotMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
+        } else {
+            robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+        }
+        robotMarker->notifyStateChange();
+    }
 }
 
 
