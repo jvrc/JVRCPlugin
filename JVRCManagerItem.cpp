@@ -60,6 +60,9 @@ public:
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
     int hitCount;
     bool isDoorDestroyed;
+
+    Body* hose;
+    Body* nozzle;
     
     JVRCManagerItemImpl(JVRCManagerItem* self);
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
@@ -72,6 +75,7 @@ public:
         Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh);
     void checkRobotMarkerPosition();
     void checkHitBetweenSpreaderAndDoor();
+    void checkConnectionBetweenHoseAndNozzle();
     void finalizeSimulation();
     void doPutProperties(PutPropertyFunction& putProperty);
     bool store(Archive& archive);
@@ -263,6 +267,7 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             spreaderItem->notifyModelUpdate();
         }
     }
+
 }
 
 
@@ -343,6 +348,18 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
                         boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
                 }
             }
+        }
+    }
+
+    SimulationBody* simHose = simulatorItem->findSimulationBody("HOSE_TRIM_OBJ");
+    if(simHose){
+        SimulationBody* simNozzle = simulatorItem->findSimulationBody("NOZZLE_OBJ");
+        if(simNozzle){
+            hose = simHose->body();
+            nozzle = simNozzle->body();
+            os << "The hose and nozzle of the task R6 have been detected." << endl;
+            simulatorItem->addPreDynamicsFunction(
+                boost::bind(&JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle, this));
         }
     }
     
@@ -439,6 +456,12 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
     if(changed){
         spreaderHitMarker->notifyStateChange();
     }
+}
+
+
+void JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle()
+{
+
 }
 
 
