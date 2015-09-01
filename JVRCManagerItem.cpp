@@ -16,6 +16,9 @@
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/bind.hpp>
+
+#include <iostream>
+
 #include "gettext.h"
 
 using namespace std;
@@ -61,8 +64,8 @@ public:
     int hitCount;
     bool isDoorDestroyed;
 
-    Body* hose;
-    Body* nozzle;
+    Link* hoseEndLink;
+    Link* nozzleLink;
     
     JVRCManagerItemImpl(JVRCManagerItem* self);
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
@@ -355,11 +358,13 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     if(simHose){
         SimulationBody* simNozzle = simulatorItem->findSimulationBody("NOZZLE_OBJ");
         if(simNozzle){
-            hose = simHose->body();
-            nozzle = simNozzle->body();
-            os << "The hose and nozzle of the task R6 have been detected." << endl;
-            simulatorItem->addPreDynamicsFunction(
-                boost::bind(&JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle, this));
+            hoseEndLink = simHose->body()->link("HOSE_TRIM_JOINT12Z");
+            nozzleLink = simNozzle->body()->rootLink();
+            if(hoseEndLink && nozzleLink){
+                os << "The hose and nozzle of the task R6 have been detected." << endl;
+                simulatorItem->addPreDynamicsFunction(
+                    boost::bind(&JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle, this));
+            }
         }
     }
     
@@ -461,7 +466,29 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 
 void JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle()
 {
+    //cout << "JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle()" << endl;
+    
+    static const Vector3 hoseEndPos(0.0, 0.28, 0.0);
+    static const Vector3 forceOnHose(0.0, 200.0, 0.0);
+    static const Vector3 nozzleEndPos(0.0, 0.0, -0.55);
+    static const Vector3 forceOnNozzle(0.0, 0.0, -200.0);
 
+    Vector3 ph = hoseEndLink->T() * hoseEndPos;
+    Vector3 pn = nozzleLink->T() * nozzleEndPos;
+
+    //cout << "distance = " << (ph - pn).norm() << endl;
+    
+    if((ph - pn).norm() < 0.01){
+        Vector3 fh = hoseEndLink->T() * forceOnHose;
+        hoseEndLink->f_ext() += fh;
+        hoseEndLink->tau_ext() += ph.cross(fh);
+
+        Vector3 fn = nozzleLink->T() * forceOnNozzle;
+        nozzleLink->f_ext() += fn;
+        nozzleLink->tau_ext() += pn.cross(fn);
+
+        //cout << "connection force is being applied" << endl;
+    }
 }
 
 
