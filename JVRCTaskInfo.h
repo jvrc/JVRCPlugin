@@ -37,8 +37,6 @@ public:
     double time() const { return time_; }
     void setTime(double t) { time_ = t; }
 
-    //JVRCEventRecord* createRecord(double time);
-
 private:
     std::string type_;
     std::string label_;
@@ -70,22 +68,6 @@ private:
 };
 
 typedef ref_ptr<JVRCGateEvent> JVRCGateEventPtr;
-
-
-/*
-class JVRCEventRecord : public JVRCEvent
-{
-public:
-    double time() const { return time_; }
-
-private:
-    JVRCEventRecord(JVRCEvent* event, double time);
-
-    double time_;
-
-    friend class JVRCEvent;
-};
-*/
 
 
 class JVRCTask : public Referenced

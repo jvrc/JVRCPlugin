@@ -32,8 +32,8 @@ public:
     Position robotMarkerPosition() const;
     SignalProxy<void()> sigRobotDetected();
 
-    JVRCTask* currentJVRCTask();
-    SignalProxy<void()> sigCurrentJVRCTaskChanged();
+    JVRCTask* currentTask();
+    SignalProxy<void()> sigCurrentTaskChanged();
 
     SignalProxy<void(JVRCEventPtr event)> sigJVRCEvent();
         

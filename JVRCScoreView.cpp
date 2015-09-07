@@ -96,6 +96,7 @@ public:
     void updateTasks();
     void setCurrentTask(int taskIndex);
     void onEventButtonClicked(int index);
+    void addEvent(JVRCEvent* event);
     void removeSelectedEvents();
 };
 
@@ -214,6 +215,9 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
         boost::bind(&JVRCScoreViewImpl::updateTasks, this));
     updateTasks();
 
+    manager->sigJVRCEvent().connect(
+        boost::bind(&JVRCScoreViewImpl::addEvent, this, _1));
+
     TimeBar::instance()->sigTimeChanged().connect(
         boost::bind(&JVRCScoreViewImpl::onTimeChanged, this, _1));
 }
@@ -321,14 +325,18 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
     JVRCTask* task = taskInfo->task(currentTaskIndex);
-    JVRCEvent* event = task->event(index);
+    JVRCEvent* event = task->event(index)->clone();
+    addEvent(event);
+}
+
+
+void JVRCScoreViewImpl::addEvent(JVRCEvent* event)
+{
     int eventIndex = eventList.rowCount();
     eventList.insertRow(0);
-    JVRCEventPtr record = event->clone();
-    record->setTime(TimeBar::instance()->time());
-    eventList.setItem(0, 0, new EventItem(QString("%1").arg(eventIndex, 2, 10, QLatin1Char('0')), record));
-    eventList.setItem(0, 1, new EventItem(toTimeString(record->time())));
-    eventList.setItem(0, 2, new EventItem(task->name().c_str()));
+    eventList.setItem(0, 0, new EventItem(QString("%1").arg(eventIndex, 2, 10, QLatin1Char('0')), event));
+    eventList.setItem(0, 1, new EventItem(toTimeString(event->time())));
+    eventList.setItem(0, 2, new EventItem(event->task()->name().c_str()));
     eventList.setItem(0, 3, new EventItem(event->label().c_str()));
 
     JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event);
@@ -338,14 +346,14 @@ void JVRCScoreViewImpl::onEventButtonClicked(int index)
             EventItem* item = static_cast<EventItem*>(eventList.item(i, 0));
             JVRCEvent* record = item->record;
             if(JVRCGateEvent* gateRecord = dynamic_cast<JVRCGateEvent*>(record)){
-                if(gateRecord->task() == task && gateRecord->index() == 0){
+                if(gateRecord->task() == gate->task() && gateRecord->index() == 0){
                     start = item->record;
                     break;
                 }
             }
         }
         if(start){
-            eventList.setItem(0, 4, new EventItem(toTimeString(record->time() - start->time())));
+            eventList.setItem(0, 4, new EventItem(toTimeString(gate->time() - start->time())));
         }
         if(currentTaskIndex + 1 < taskInfo->numTasks()){
             setCurrentTask(currentTaskIndex + 1);

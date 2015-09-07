@@ -313,13 +313,13 @@ SignalProxy<void()> JVRCManagerItem::sigRobotDetected()
 }
 
 
-JVRCTask* JVRCManagerItem::currentJVRCTask()
+JVRCTask* JVRCManagerItem::currentTask()
 {
     return impl->currentTask;
 }
 
 
-SignalProxy<void()> JVRCManagerItem::sigCurrentJVRCTaskChanged()
+SignalProxy<void()> JVRCManagerItem::sigCurrentTaskChanged()
 {
     return impl->sigCurrentTaskChanged;
 }

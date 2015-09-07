@@ -45,14 +45,6 @@ void JVRCEvent::setLabel(const std::string& label)
 }
 
 
-/*
-JVRCEventRecord* JVRCEvent::createRecord(double time)
-{
-    return new JVRCEventRecord(this, time);
-}
-*/
-
-
 JVRCEvent* JVRCEvent::clone()
 {
     return new JVRCEvent(*this);
@@ -103,15 +95,6 @@ bool JVRCGateEvent::isGoal() const
     }
     return false;
 }
-
-
-/*
-JVRCEventRecord::JVRCEventRecord(JVRCEvent* event, double time)
-    : JVRCEvent(*event)
-{
-    time_ = time;
-}
-*/
 
 
 JVRCTask::JVRCTask(const std::string& name)
