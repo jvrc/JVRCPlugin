@@ -31,6 +31,9 @@ public:
     BodyItem* robotItem();
     Position robotMarkerPosition() const;
     SignalProxy<void()> sigRobotDetected();
+
+    JVRCTask* currentTask();
+    SignalProxy<void()> sigCurrentTaskChanged();
         
     virtual bool isEnabled();
     virtual bool initializeSimulation(SimulatorItem* simulatorItem);

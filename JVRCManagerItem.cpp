@@ -47,6 +47,10 @@ public:
     JVRCTaskInfoPtr taskInfo;
     Signal<void()> sigTaskInfoUpdated;
 
+    JVRCTaskPtr currentTask;
+    Signal<void()> sigCurrentTaskChanged;
+    int nextGateIndex;
+
     ScopedConnection worldItemConnection;
     WorldItem* worldItem;
 
@@ -71,6 +75,8 @@ public:
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
     ~JVRCManagerItemImpl();
     void initialize();
+    void setCurrentTask(JVRCTask* task);
+    bool loadJVRCInfo(const std::string& filename);
     void onPositionChanged();
     void onItemsInWorldChanged();
     bool initializeSimulation(SimulatorItem* simulatorItem);
@@ -275,7 +281,6 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             spreaderItem->notifyModelUpdate();
         }
     }
-
 }
 
 
@@ -303,10 +308,43 @@ SignalProxy<void()> JVRCManagerItem::sigRobotDetected()
 }
 
 
+JVRCTask* JVRCManagerItem::currentTask()
+{
+    return impl->currentTask;
+}
+
+
+SignalProxy<void()> JVRCManagerItem::sigCurrentTaskChanged()
+{
+    return impl->sigCurrentTaskChanged;
+}
+
+
+void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
+{
+    if(task != currentTask){
+        currentTask = task;
+        nextGateIndex = 0;
+        sigCurrentTaskChanged();
+    }
+}
+
+
 bool JVRCManagerItem::loadJVRCInfo(const std::string& filename)
 {
-    if(impl->taskInfo->load(filename)){
-        impl->sigTaskInfoUpdated();
+    return impl->loadJVRCInfo(filename);
+}
+
+
+bool JVRCManagerItemImpl::loadJVRCInfo(const std::string& filename)
+{
+    setCurrentTask(0);
+    
+    if(taskInfo->load(filename)){
+        sigTaskInfoUpdated();
+        if(taskInfo->numTasks() > 0){
+            setCurrentTask(taskInfo->task(0));
+        }
         return true;
     }
     return false;
