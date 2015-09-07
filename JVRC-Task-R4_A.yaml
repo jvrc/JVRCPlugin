@@ -4,18 +4,7 @@ tasks:
       - type: gate
         label: Start
         location: [ [ 4.7, 3.0 ], [ 1.8, 3.0 ] ]
-      - type: action
-        label: "Door point 1"
-        localPosition: [ 1, 2, 3]
-        level: 1
-      - type: action
-        label: "Door point 2"
-        localPosition: [ 1, 2, 3]
-        level: 1
-      - type: action
-        label: "Door point 3"
-        localPosition: [ 1, 2, 3]
-        level: 1
       - type: gate
         label: Goal
         location: [ [ 4.7, 15.0 ], [ 1.8, 15.0 ] ]
+    doorPoints: [ [ 1, 2, 3], [ 1, 2, 3], [1, 2, 3] ]

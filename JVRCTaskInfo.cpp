@@ -9,22 +9,22 @@ using namespace std;
 using namespace cnoid;
 
 
-JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, const Mapping& eventNode)
+JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info)
     : type_(type),
       label_(type),
       task_(task)
 {
     string label;
-    if(eventNode.read("label", label)){
+    if(info->read("label", label)){
         label_ = label;
     }
 
     level_ = 0;
     int level;
-    if(eventNode.read("level", level)){
+    if(info->read("level", level)){
         level_ = level;
     }
-    
+
     time_ = 0.0;
 }
 
@@ -51,14 +51,14 @@ JVRCEvent* JVRCEvent::clone()
 }
 
 
-JVRCGateEvent::JVRCGateEvent(JVRCTask* task, const Mapping& eventNode)
-    : JVRCEvent("gate", task, eventNode)
+JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
+    : JVRCEvent("gate", task, info)
 {
     index_ = 0;
     locations[0].setZero();
     locations[1].setZero();
 
-    const Listing& location = *eventNode.findListing("location");
+    const Listing& location = *info->findListing("location");
     if(location.isValid()){
         if(location.size() == 2){
             for(int i=0; i < 2; ++i){
@@ -97,10 +97,22 @@ bool JVRCGateEvent::isGoal() const
 }
 
 
-JVRCTask::JVRCTask(const std::string& name)
-    : name_(name)
+JVRCTask::JVRCTask(Mapping* info)
+    : info_(info)
 {
-
+    name_ = info->read<string>("name");
+    Listing& eventNodes = *info->findListing("events");
+    if(eventNodes.isValid()){
+        for(int j=0; j < eventNodes.size(); ++j){
+            Mapping* eventInfo = eventNodes[j].toMapping();
+            string type = eventInfo->read<string>("type");
+            if(type == "gate"){
+                addEvent(new JVRCGateEvent(this, eventInfo));
+            } else {
+                addEvent(new JVRCEvent(type, this, eventInfo));
+            }
+        }
+    }
 }
 
 
@@ -130,22 +142,7 @@ bool JVRCTaskInfo::load(const std::string& filename)
 void JVRCTaskInfo::readTasks(const Listing& taskNodes)
 {
     tasks.clear();
-    
     for(int i=0; i < taskNodes.size(); ++i){
-        const Mapping& taskNode = *taskNodes[i].toMapping();
-        JVRCTaskPtr task = new JVRCTask(taskNode.read<string>("name"));
-        const Listing& eventNodes = *taskNode.findListing("events");
-        if(eventNodes.isValid()){
-            for(int j=0; j < eventNodes.size(); ++j){
-                const Mapping& eventNode = *eventNodes[j].toMapping();
-                string type = eventNode.read<string>("type");
-                if(type == "gate"){
-                    task->addEvent(new JVRCGateEvent(task, eventNode));
-                } else {
-                    task->addEvent(new JVRCEvent(type, task, eventNode));
-                }
-            }
-        }
-        tasks.push_back(task);
+        tasks.push_back(new JVRCTask(taskNodes[i].toMapping()));
     }
 }

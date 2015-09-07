@@ -8,6 +8,7 @@
 
 #include <cnoid/Referenced>
 #include <cnoid/EigenTypes>
+#include <cnoid/ValueTree>
 #include <string>
 #include <vector>
 
@@ -21,7 +22,7 @@ class JVRCTask;
 class JVRCEvent : public Referenced
 {
 public:
-    JVRCEvent(const std::string& type, JVRCTask* task, const Mapping& eventNode);
+    JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info);
     JVRCEvent(const JVRCEvent& org);
 
     virtual JVRCEvent* clone();
@@ -53,7 +54,7 @@ class JVRCGateEvent : public JVRCEvent
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-    JVRCGateEvent(JVRCTask* task, const Mapping& eventNode);
+    JVRCGateEvent(JVRCTask* task, Mapping* info);
     JVRCGateEvent(const JVRCGateEvent& org);
     virtual JVRCEvent* clone();
     const Vector3& location(int which) const { return locations[which]; }
@@ -73,7 +74,7 @@ typedef ref_ptr<JVRCGateEvent> JVRCGateEventPtr;
 class JVRCTask : public Referenced
 {
 public:
-    JVRCTask(const std::string& name);
+    JVRCTask(Mapping* info);
 
     const std::string& name() const { return name_; }
     void addEvent(JVRCEvent* event);
@@ -83,10 +84,13 @@ public:
     int numGates() const { return gates.size(); }
     JVRCGateEvent* gate(int index) { return gates[index]; }
 
+    const Mapping* info() const { return info_; }
+
 private:
     std::string name_;
     std::vector<JVRCEventPtr> events;
     std::vector<JVRCGateEventPtr> gates;
+    MappingPtr info_;
 };
 
 typedef ref_ptr<JVRCTask> JVRCTaskPtr;
