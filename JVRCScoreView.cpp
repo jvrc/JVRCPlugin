@@ -52,8 +52,8 @@ public:
 class EventItem : public QTableWidgetItem
 {
 public:
-    JVRCEventRecordPtr record;
-    EventItem(const QString& text, JVRCEventRecord* record = 0) : QTableWidgetItem(text), record(record) {
+    JVRCEventPtr record;
+    EventItem(const QString& text, JVRCEvent* record = 0) : QTableWidgetItem(text), record(record) {
         setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         //setFlags(Qt::ItemIsEnabled I Qt::temIsSelectable | Qt::ItemIsEditable);
         setTextAlignment(Qt::AlignCenter);
@@ -324,22 +324,23 @@ void JVRCScoreViewImpl::onEventButtonClicked(int index)
     JVRCEvent* event = task->event(index);
     int eventIndex = eventList.rowCount();
     eventList.insertRow(0);
-    JVRCEventRecordPtr record = event->createRecord(TimeBar::instance()->time());
+    JVRCEventPtr record = event->clone();
+    record->setTime(TimeBar::instance()->time());
     eventList.setItem(0, 0, new EventItem(QString("%1").arg(eventIndex, 2, 10, QLatin1Char('0')), record));
     eventList.setItem(0, 1, new EventItem(toTimeString(record->time())));
     eventList.setItem(0, 2, new EventItem(task->name().c_str()));
     eventList.setItem(0, 3, new EventItem(event->label().c_str()));
 
-    if(event->type() == "goal"){
-        JVRCEventRecord* start = 0;
+    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event);
+    if(gate && gate->isGoal()){
+        JVRCEvent* start = 0;
         for(int i=1; i < eventList.rowCount(); ++i){
-            EventItem* item = dynamic_cast<EventItem*>(eventList.item(i, 0));
-            if(item){
-                if(item->record){
-                    if(item->record->task() == task && item->record->type() == "start"){
-                        start = item->record;
-                        break;
-                    }
+            EventItem* item = static_cast<EventItem*>(eventList.item(i, 0));
+            JVRCEvent* record = item->record;
+            if(JVRCGateEvent* gateRecord = dynamic_cast<JVRCGateEvent*>(record)){
+                if(gateRecord->task() == task && gateRecord->index() == 0){
+                    start = item->record;
+                    break;
                 }
             }
         }
