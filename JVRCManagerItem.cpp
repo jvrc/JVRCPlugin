@@ -16,6 +16,7 @@
 #include <cnoid/LazyCaller>
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
 
 #include <iostream>
@@ -70,8 +71,9 @@ public:
     Body* spreader;
     Body* door;
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
+    boost::dynamic_bitset<> doorDestroyFlags;
     int hitCount;
-    bool isDoorDestroyed;
+    int hitIndex;
 
     Link* hoseEndLink;
     Link* nozzleLink;
@@ -84,7 +86,9 @@ public:
     bool loadJVRCInfo(const std::string& filename);
     void onPositionChanged();
     void onItemsInWorldChanged();
+    void initializeTask_R3_A();
     bool initializeSimulation(SimulatorItem* simulatorItem);
+    void startTask_R3_A();
     static int checkPositionalRelationshipWithGate(
         Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh);
     void checkRobotMarkerPosition();
@@ -154,8 +158,6 @@ void JVRCManagerItemImpl::initialize()
     spreaderItem = 0;
     isEnabled = true;
     taskInfo = new JVRCTaskInfo();
-
-    doorTargetPoints.push_back(Vector3(5.154, 9.012, 1.090));
 }
 
 
@@ -227,8 +229,7 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             Body* body = bodyItem->body();
             SceneNodeFinder finder;
             SgNode* markerNode = 0;
-            //double markerRadius = 0.025;
-            double markerRadius = 0.03;
+            double markerRadius = 0.0255;
             for(int i=0; i < body->numLinks(); ++i){
                 Link* link = body->link(i);
                 markerNode = finder.find(link->visualShape(), "JVRC-Robot-Marker");
@@ -236,8 +237,7 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
                     robotItem = bodyItem;
                     robotMarkerLink = link;
                     robotMarkerLocalPosition = finder.position();
-                    markerRadius = markerNode->boundingBox().boundingSphereRadius();
-                    cout << "boundingSphereRadius() = " << markerRadius << endl;
+                    //markerRadius = markerNode->boundingBox().boundingSphereRadius();
                     break;
                 }
             }
@@ -265,10 +265,36 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
         }
         sigRobotDetected();
     }
-    
-    spreaderItem = worldItem->findItem<BodyItem>("Task_R4A-spreader");
+
+    initializeTask_R3_A();
+
+}
+
+
+void JVRCManagerItemImpl::initializeTask_R3_A()
+{
+    JVRCTask* task = taskInfo->findTask("R3_A");
+    if(!task){
+        return;
+    }
+
+    doorTargetPoints.clear();
+    Listing& doorPointListing = *task->info()->findListing("doorTargetPoints");
+    if(doorPointListing.isValid()){
+        for(int i=0; i < doorPointListing.size(); ++i){
+            Listing& point = *doorPointListing[i].toListing();
+            if(point.size() == 3){
+                doorTargetPoints.push_back(Vector3(point[0].toDouble(), point[1].toDouble(), point[2].toDouble()));
+            }
+        }
+    }
+    if(doorTargetPoints.empty()){
+        return;
+    }
+
+    spreaderItem = worldItem->findItem<BodyItem>("R3A_spreader");
     if(spreaderItem){
-        os << (format(_("The spreader \"%1%\" of the task R4A has been detected.")) % spreaderItem->name()) << endl;
+        os << (format(_("The spreader \"%1%\" of the task R3A has been detected.")) % spreaderItem->name()) << endl;
         Body* spreader = spreaderItem->body();
         SphereMarkerDevice* marker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
         if(!marker){
@@ -276,13 +302,13 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             marker->setId(0);
             marker->setName("HitMarker");
             marker->setLink(spreader->rootLink());
-            marker->setLocalTranslation(Vector3(0.16, 0.0, 0.0));
+            marker->setLocalTranslation(Vector3(0.007, -0.57, 0.0));
             marker->on(false);
             marker->setRadius(minMarkerRadius);
             marker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
             marker->setTransparency(0.4f);
             spreader->addDevice(marker);
-            os <<_("A virtual device to visualize the hits of the spreader's blades has been added to \"Task_R4A_spreader.\"") << endl;
+            os <<_("A virtual device to visualize the hits of the spreader's blades has been added to \"R3A_spreader.\"") << endl;
             spreaderItem->notifyModelUpdate();
         }
     }
@@ -388,28 +414,8 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
         }
     }
 
-    spreader = 0;
-    if(spreaderItem){
-        BodyItem* doorItem = worldItem->findItem<BodyItem>("Task_R4A-Door-Task_R4A-visual");
-        if(doorItem){
-            SimulationBody* simDoor = simulatorItem->findSimulationBody(doorItem);
-            SimulationBody* simSpreader = simulatorItem->findSimulationBody(spreaderItem);
-            if(simDoor && simSpreader){
-                door = simDoor->body();
-                spreader = simSpreader->body();
-                spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
-                if(spreaderHitMarker){
-                    hitCount = 0;
-                    isDoorDestroyed = false;
-                    simDoor->setActive(true);
-                    spreaderHitMarker->setRadius(minMarkerRadius);
-                    os << "The spreader and the car door of Task R4A has been detected." << endl;
-                    simulatorItem->addPostDynamicsFunction(
-                        boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
-                }
-            }
-        }
-    }
+    startTask_R3_A();
+
 
     SimulationBody* simHose = simulatorItem->findSimulationBody("HOSE_TRIM_OBJ");
     if(simHose){
@@ -426,6 +432,36 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     }
     
     return true;
+}
+
+
+void JVRCManagerItemImpl::startTask_R3_A()
+{
+    spreader = 0;
+    if(spreaderItem){
+        BodyItem* doorItem = worldItem->findItem<BodyItem>("door");
+        if(doorItem){
+            SimulationBody* simDoor = simulatorItem->findSimulationBody(doorItem);
+            SimulationBody* simSpreader = simulatorItem->findSimulationBody(spreaderItem);
+            if(simDoor && simSpreader){
+                door = simDoor->body();
+                spreader = simSpreader->body();
+                spreaderHitMarker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
+                if(spreaderHitMarker){
+                    doorDestroyFlags.clear();
+                    doorDestroyFlags.resize(doorTargetPoints.size());
+                    hitCount = 0;
+                    hitIndex = -1;
+                    //isDoorDestroyed = false;
+                    simDoor->setActive(true);
+                    spreaderHitMarker->setRadius(minMarkerRadius);
+                    os << "The spreader and the car door of Task R3A has been detected." << endl;
+                    simulatorItem->addPostDynamicsFunction(
+                        boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
+                }
+            }
+        }
+    }
 }
 
 
@@ -491,43 +527,71 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
 
 void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 {
-    if(isDoorDestroyed){
+    if(doorDestroyFlags.count() == doorDestroyFlags.size()){
         return;
     }
     
     bool isHitting = false;
     Link* spreaderLink = spreader->rootLink();
-    const Vector3 p = spreaderLink->T() * Vector3(0.165, 0.0, 0.0);
+    const Vector3 p = spreaderLink->T() * Vector3(0.007, -0.57, 0.0);
     Link* doorRoot = door->rootLink();
     for(size_t i=0; i < doorTargetPoints.size(); ++i){
         const Vector3 q = doorRoot->T() * doorTargetPoints[i];
         isHitting = (p - q).norm() < 0.05;
         if(isHitting){
+            if(i != hitIndex){
+                hitCount = 0;
+                hitIndex = i;
+            }
             break;
         }
     }
+
     bool changed = false;
     if(isHitting){
         double r = spreaderHitMarker->radius() + 0.0005;
         if(r > maxMarkerRadius){
-            ++hitCount;
-            if(hitCount == 10){
-                doorRoot->T().translation().z() -= 2.0;
-                isDoorDestroyed = true;
-                isHitting = false;
+            if(!doorDestroyFlags[hitIndex]){
+                ++hitCount;
+                if(hitCount == 10){
+                    doorDestroyFlags[hitIndex] = true;
+
+                    JVRCEvent* event = new JVRCEvent("action", currentTask);
+                    event->setLabel(str(format("Spreader %1%") % hitIndex));
+                    event->setTime(simulatorItem->currentTime());
+                    callLater(boost::bind(boost::ref(sigJVRCEvent), event));
+
+                    
+                    if(doorDestroyFlags.count() == doorDestroyFlags.size()){
+                        doorRoot->T().translation().z() -= 2.0;
+
+                        JVRCEvent* event = new JVRCEvent("action", currentTask);
+                        event->setLabel("Door");
+                        event->setTime(simulatorItem->currentTime());
+                        callLater(boost::bind(boost::ref(sigJVRCEvent), event));
+                    }
+                    hitCount = 0;
+                }
             }
             r = minMarkerRadius;
+        }
+        if(doorDestroyFlags[hitIndex]){
+            spreaderHitMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+        } else {
+            spreaderHitMarker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
         }
         spreaderHitMarker->setRadius(r);
         changed = true;
     }
     if(isHitting != spreaderHitMarker->on()){
         spreaderHitMarker->on(isHitting);
+        /*
         if(isHitting){
             os << "The spreader is hiting to a target point." << endl;
         } else {
             os << "The spreader is not hitting to any target points." << endl;
         }
+        */
         changed = true;
     }
     if(changed){

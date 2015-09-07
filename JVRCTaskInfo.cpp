@@ -9,6 +9,16 @@ using namespace std;
 using namespace cnoid;
 
 
+JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task)
+    : type_(type),
+      label_(type),
+      task_(task)
+{
+    level_ = 0;
+    time_ = 0.0;
+}
+
+
 JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info)
     : type_(type),
       label_(type),
@@ -145,4 +155,15 @@ void JVRCTaskInfo::readTasks(const Listing& taskNodes)
     for(int i=0; i < taskNodes.size(); ++i){
         tasks.push_back(new JVRCTask(taskNodes[i].toMapping()));
     }
+}
+
+
+JVRCTask* JVRCTaskInfo::findTask(const std::string& name)
+{
+    for(size_t i=0; i < tasks.size(); ++i){
+        if(tasks[i]->name() == name){
+            return tasks[i];
+        }
+    }
+    return 0;
 }

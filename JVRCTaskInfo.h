@@ -22,6 +22,7 @@ class JVRCTask;
 class JVRCEvent : public Referenced
 {
 public:
+    JVRCEvent(const std::string& type, JVRCTask* task);
     JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info);
     JVRCEvent(const JVRCEvent& org);
 
@@ -102,7 +103,8 @@ public:
     bool load(const std::string& filename);
 
     int numTasks() const { return tasks.size(); }
-    JVRCTaskPtr task(int index) { return tasks[index]; }
+    JVRCTask* task(int index) { return tasks[index]; }
+    JVRCTask* findTask(const std::string& name);
 
 private:
     std::vector<JVRCTaskPtr> tasks;

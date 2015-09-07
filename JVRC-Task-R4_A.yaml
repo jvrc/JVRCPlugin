@@ -1,5 +1,5 @@
 tasks:
-  - name: R4_A
+  - name: R3_A
     events:
       - type: gate
         label: Start
@@ -7,4 +7,4 @@ tasks:
       - type: gate
         label: Goal
         location: [ [ 4.7, 15.0 ], [ 1.8, 15.0 ] ]
-    doorPoints: [ [ 1, 2, 3], [ 1, 2, 3], [1, 2, 3] ]
+    doorTargetPoints: [ [ 4.35, 9.96, 1.06 ], [ 4.3, 10.96, 1.11 ], [ 4.33, 10.94, 0.87 ] ]
