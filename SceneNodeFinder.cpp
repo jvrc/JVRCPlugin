@@ -50,8 +50,10 @@ void SceneNodeFinder::visitGroup(SgGroup* group)
 
 void SceneNodeFinder::visitTransform(SgTransform* transform)
 {
+    Affine3 T0 = T;
     Affine3 U;
     transform->getTransform(U);
     T = T * U;
     visitGroup(transform);
+    T = T0;
 }

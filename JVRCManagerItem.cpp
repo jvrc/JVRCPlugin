@@ -216,6 +216,8 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
             Body* body = bodyItem->body();
             SceneNodeFinder finder;
             SgNode* markerNode = 0;
+            //double markerRadius = 0.025;
+            double markerRadius = 0.03;
             for(int i=0; i < body->numLinks(); ++i){
                 Link* link = body->link(i);
                 markerNode = finder.find(link->visualShape(), "JVRC-Robot-Marker");
@@ -223,6 +225,8 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
                     robotItem = bodyItem;
                     robotMarkerLink = link;
                     robotMarkerLocalPosition = finder.position();
+                    markerRadius = markerNode->boundingBox().boundingSphereRadius();
+                    cout << "boundingSphereRadius() = " << markerRadius << endl;
                     break;
                 }
             }
@@ -238,9 +242,10 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
                     robotMarker->setLink(robotMarkerLink);
                     robotMarker->setLocalTranslation(robotMarkerLocalPosition.translation());
                     robotMarker->on(true);
-                    robotMarker->setRadius(0.055);
+                    robotMarker->setRadius(markerRadius);
                     robotMarker->setTransparency(0.0);
-                    robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+                    //robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+                    robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
                     robot->addDevice(robotMarker);
                     robotItem->notifyModelUpdate();
                 }
@@ -399,8 +404,8 @@ int JVRCManagerItemImpl::checkPositionalRelationshipWithGate
 
 void JVRCManagerItemImpl::checkRobotMarkerPosition()
 {
-    static const Vector3 g1(2.0, -1.1, 0.0);
-    static const Vector3 g2(2.0, 1.7, 0.0);
+    static const Vector3 g1(4.7, 3.0, 0.0);
+    static const Vector3 g2(1.8, 3.0, 0.0);
     
     if(robotMarker){
         Vector3 p = (robotMarker->link()->T() * robotMarker->T_local()).translation();

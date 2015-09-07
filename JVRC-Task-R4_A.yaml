@@ -1,0 +1,21 @@
+tasks:
+  - name: R4_A
+    events:
+      - type: gate
+        label: Start
+        location: [ [ 2.0, -1.1 ], [ 2.0, 1.7 ] ]
+      - type: action
+        label: "Door point 1"
+        localPosition: [ 1, 2, 3]
+        level: 1
+      - type: action
+        label: "Door point 2"
+        localPosition: [ 1, 2, 3]
+        level: 1
+      - type: action
+        label: "Door point 3"
+        localPosition: [ 1, 2, 3]
+        level: 1
+      - type: gate
+        label: Goal
+        location: [ [ 14.0, -1.1 ], [ 14.0, 1.7 ] ]
