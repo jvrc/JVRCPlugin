@@ -28,8 +28,7 @@ apply_common_setting_for_plugin(${target})
 
 file(MAKE_DIRECTORY ${CNOID_SOURCE_SHARE_DIR}/jvrc)
 
-# configure_file(JVRCInfo.yaml ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
-configure_file(JVRC-Task-R4_A.yaml ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
+configure_file(JVRC-Task-R3_A.yaml ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
 
 configure_file(JVRC-Robot-Marker.wrl ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
 
