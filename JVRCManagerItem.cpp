@@ -13,6 +13,7 @@
 #include <cnoid/MessageView>
 #include <cnoid/Archive>
 #include <cnoid/Body>
+#include <cnoid/LazyCaller>
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/bind.hpp>
@@ -49,7 +50,11 @@ public:
 
     JVRCTaskPtr currentTask;
     Signal<void()> sigCurrentTaskChanged;
+
+    Signal<void(JVRCEventPtr event)> sigJVRCEvent;
     int nextGateIndex;
+    bool isInFrontOfGate;
+    bool isPassingGate;
 
     ScopedConnection worldItemConnection;
     WorldItem* worldItem;
@@ -308,13 +313,13 @@ SignalProxy<void()> JVRCManagerItem::sigRobotDetected()
 }
 
 
-JVRCTask* JVRCManagerItem::currentTask()
+JVRCTask* JVRCManagerItem::currentJVRCTask()
 {
     return impl->currentTask;
 }
 
 
-SignalProxy<void()> JVRCManagerItem::sigCurrentTaskChanged()
+SignalProxy<void()> JVRCManagerItem::sigCurrentJVRCTaskChanged()
 {
     return impl->sigCurrentTaskChanged;
 }
@@ -327,6 +332,12 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
         nextGateIndex = 0;
         sigCurrentTaskChanged();
     }
+}
+
+
+SignalProxy<void(JVRCEventPtr event)> JVRCManagerItem::sigJVRCEvent()
+{
+    return impl->sigJVRCEvent;
 }
 
 
@@ -368,6 +379,9 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
             robotMarker = simRobot->body()->findDevice<SphereMarkerDevice>("JVRCRobotMarker");
             if(robotMarker){
                 robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+                nextGateIndex = 0;
+                isInFrontOfGate = false;
+                isPassingGate = false;
                 simulatorItem->addPostDynamicsFunction(
                     boost::bind(&JVRCManagerItemImpl::checkRobotMarkerPosition, this));
             }
@@ -442,19 +456,34 @@ int JVRCManagerItemImpl::checkPositionalRelationshipWithGate
 
 void JVRCManagerItemImpl::checkRobotMarkerPosition()
 {
-    static const Vector3 g1(4.7, 3.0, 0.0);
-    static const Vector3 g2(1.8, 3.0, 0.0);
+    if(!currentTask){
+        return;
+    }
     
-    if(robotMarker){
+    if(nextGateIndex < currentTask->numGates()){
         Vector3 p = (robotMarker->link()->T() * robotMarker->T_local()).translation();
-        int r = checkPositionalRelationshipWithGate(p, g1, g2, 0.25);
+        JVRCGateEvent* gate = currentTask->gate(nextGateIndex);
+        int r = checkPositionalRelationshipWithGate(p, gate->location(0), gate->location(1), 0.25);
         if(r < 0){
             robotMarker->setColor(Vector3f(0.0f, 1.0f, 0.0f));
-        } else if(r > 0){
-            robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
+            isInFrontOfGate = true;
+            
         } else {
-            robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+            if(r > 0){
+                robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
+                if(isInFrontOfGate){
+                    os << "Gate " << gate->index() << " has been passed." << endl;
+                    JVRCEvent* event = gate->clone();
+                    event->setTime(simulatorItem->currentTime());
+                    callLater(boost::bind(boost::ref(sigJVRCEvent), event));
+                    ++nextGateIndex;
+                }
+            } else {
+                robotMarker->setColor(Vector3f(1.0f, 0.0f, 0.0f));
+            }
+            isInFrontOfGate = false;
         }
+        
         robotMarker->notifyStateChange();
     }
 }

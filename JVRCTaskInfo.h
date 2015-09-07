@@ -58,15 +58,15 @@ public:
     JVRCGateEvent(JVRCTask* task, const Mapping& eventNode);
     JVRCGateEvent(const JVRCGateEvent& org);
     virtual JVRCEvent* clone();
-    const Vector2& location(int which) const { return locations[which]; }
-    void setLocation(int which, const Vector2& p) { locations[which] = p; }
+    const Vector3& location(int which) const { return locations[which]; }
+    void setLocation(int which, const Vector3& p) { locations[which] = p; }
     int index() const { return index_; }
     void setIndex(int i) { index_ = i; }
     bool isGoal() const;
 
 private:
     int index_;
-    Vector2 locations[2];
+    Vector3 locations[2];
 };
 
 typedef ref_ptr<JVRCGateEvent> JVRCGateEventPtr;

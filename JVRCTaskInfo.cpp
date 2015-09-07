@@ -72,7 +72,7 @@ JVRCGateEvent::JVRCGateEvent(JVRCTask* task, const Mapping& eventNode)
             for(int i=0; i < 2; ++i){
                 const Listing& p = *location[i].toListing();
                 if(p.size() == 2){
-                    locations[i] << p[0].toDouble(), p[1].toDouble();
+                    locations[i] << p[0].toDouble(), p[1].toDouble(), 0.0;
                 }
             }
         }

@@ -3,7 +3,7 @@ tasks:
     events:
       - type: gate
         label: Start
-        location: [ [ 2.0, -1.1 ], [ 2.0, 1.7 ] ]
+        location: [ [ 4.7, 3.0 ], [ 1.8, 3.0 ] ]
       - type: action
         label: "Door point 1"
         localPosition: [ 1, 2, 3]
@@ -18,4 +18,4 @@ tasks:
         level: 1
       - type: gate
         label: Goal
-        location: [ [ 14.0, -1.1 ], [ 14.0, 1.7 ] ]
+        location: [ [ 4.7, 15.0 ], [ 1.8, 15.0 ] ]
