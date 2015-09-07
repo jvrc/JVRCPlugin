@@ -5,8 +5,6 @@ tasks:
       - type: gate
         label: Start (1)
         location: [ [ 2.5, 1.1 ], [ 2.5, 1.7 ] ]
-      #- type: target
-      #  maxCount: 10
       - type: gate
         label: Goal (2)
         location: [ [ 6.3, 1.1 ], [ 6.3, 1.7 ] ]
@@ -14,8 +12,6 @@ tasks:
     events:
       - type: gate
         label: Start (1)
-      #- type: target
-      #  maxCount: 10
       - type: gate
         label: Goal (2)
   - name: R1
@@ -32,24 +28,14 @@ tasks:
     events:
       - type: gate
         label: Start (1)
-      #- type: target
-      #  maxCount: 4
       - type: gate
         label: Goal (2)
   - name: R2_M
     events:
       - type: gate
         label: Start (1)
-      #- type: target
-      #  maxCount: 5
       - type: gate
         label: Goal (2)
-  #- name: R2-3
-  #  events:
-  #    - type: Report
-  #      label: Positions
-  #    - type: Report
-  #      label: 3D data
   - name: R3_AB
     events:
       - type: gate
@@ -69,7 +55,6 @@ tasks:
       - type: gate
         label: Start (1)
         location: [ [ 2.0, -1.1 ], [ 2.0, 1.7 ] ]
-      #- type: target
       - type: gate
         label: Goal (2)
         location: [ [ 14.0, -1.1 ], [ 14.0, 1.7 ] ]
@@ -77,7 +62,6 @@ tasks:
     events:
       - type: gate
         label: Start (1)
-      #- type: target
       - type: gate
         label: Goal (2)
   - name: R5
@@ -110,7 +94,3 @@ tasks:
         level: 1
       - type: gate
         label: Goal (2)
-
-        
-        
-      

@@ -9,36 +9,31 @@ using namespace std;
 using namespace cnoid;
 
 
-JVRCTask::JVRCTask(const std::string& name)
-    : name_(name)
+JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, const Mapping& eventNode)
+    : type_(type),
+      label_(type),
+      task_(task)
 {
+    string label;
+    if(eventNode.read("label", label)){
+        label_ = label;
+    }
 
-}
-
-
-void JVRCTask::addEvent(JVRCEventPtr event)
-{
-    events.push_back(event);
-}
-
-
-JVRCEvent::JVRCEvent(JVRCTaskPtr task, const std::string& type)
-    : task_(task),
-      type_(type),
-      label_(type)
-{
     level_ = 0;
-    //maxNumEvents_ = 1;
+    int level;
+    if(eventNode.read("level", level)){
+        level_ = level;
+    }
+    
     time_ = 0.0;
 }
 
 
 JVRCEvent::JVRCEvent(const JVRCEvent& org)
-    : task_(org.task_),
-      type_(org.type_),
+    : type_(org.type_),
       label_(org.label_),
-      level_(org.level_)
-      //maxNumEvents_(org.maxNumEvents_)
+      level_(org.level_),
+      task_(org.task_)
 {
 
 }
@@ -64,37 +59,49 @@ JVRCEvent* JVRCEvent::clone()
 }
 
 
-/*
-void JVRCEvent::setMaxNumEvents(int n)
+JVRCGateEvent::JVRCGateEvent(JVRCTask* task, const Mapping& eventNode)
+    : JVRCEvent("gate", task, eventNode)
 {
-    maxNumEvents_ = n;
-}
-*/
-
-
-JVRCGateEvent::JVRCGateEvent(JVRCTaskPtr task)
-    : JVRCEvent(task, "gate")
-{
+    index_ = 0;
     locations[0].setZero();
     locations[1].setZero();
-    index_ = 0;
-    isGoal_ = false;
+
+    const Listing& location = *eventNode.findListing("location");
+    if(location.isValid()){
+        if(location.size() == 2){
+            for(int i=0; i < 2; ++i){
+                const Listing& p = *location[i].toListing();
+                if(p.size() == 2){
+                    locations[i] << p[0].toDouble(), p[1].toDouble();
+                }
+            }
+        }
+    }
 }
-    
+
 
 JVRCGateEvent::JVRCGateEvent(const JVRCGateEvent& org)
     : JVRCEvent(org)
 {
+    index_ = org.index_;
     locations[0] = org.locations[0];
     locations[1] = org.locations[1];
-    index_ = org.index_;
-    isGoal_ = org.isGoal_;
 }
 
 
 JVRCEvent* JVRCGateEvent::clone()
 {
     return new JVRCGateEvent(*this);
+}
+
+
+bool JVRCGateEvent::isGoal() const
+{
+    const JVRCTask* t = task();
+    if(t){
+        return index() == (t->numGates() - 1);
+    }
+    return false;
 }
 
 
@@ -105,6 +112,24 @@ JVRCEventRecord::JVRCEventRecord(JVRCEvent* event, double time)
     time_ = time;
 }
 */
+
+
+JVRCTask::JVRCTask(const std::string& name)
+    : name_(name)
+{
+
+}
+
+
+void JVRCTask::addEvent(JVRCEvent* event)
+{
+    events.push_back(event);
+
+    if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event)){
+        gate->setIndex(gates.size());
+        gates.push_back(gate);
+    }
+}
 
 
 bool JVRCTaskInfo::load(const std::string& filename)
@@ -128,37 +153,16 @@ void JVRCTaskInfo::readTasks(const Listing& taskNodes)
         JVRCTaskPtr task = new JVRCTask(taskNode.read<string>("name"));
         const Listing& eventNodes = *taskNode.findListing("events");
         if(eventNodes.isValid()){
-            int gateIndex = 0;
-            JVRCGateEvent* gate = 0;
             for(int j=0; j < eventNodes.size(); ++j){
                 const Mapping& eventNode = *eventNodes[j].toMapping();
                 string type = eventNode.read<string>("type");
-                JVRCEventPtr event;
                 if(type == "gate"){
-                    gate = new JVRCGateEvent(task);
-                    gate->setIndex(gateIndex);
-                    event = gate;
+                    task->addEvent(new JVRCGateEvent(task, eventNode));
                 } else {
-                    event = new JVRCEvent(task, type);
+                    task->addEvent(new JVRCEvent(type, task, eventNode));
                 }
-                string label;
-                if(eventNode.read("label", label)){
-                    event->setLabel(label);
-                }
-                int level;
-                if(eventNode.read("level", level)){
-                    event->setLevel(level);
-                }
-                //event->setMaxNumEvents(eventNode.get("maxCount", 1));
-                task->addEvent(event);
-            }
-            if(gate){
-                gate->setGoal();
             }
         }
         tasks.push_back(task);
     }
 }
-
-
-    

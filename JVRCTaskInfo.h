@@ -13,76 +13,26 @@
 
 namespace cnoid {
 
-/*
-enum JVRCTaskID {
-    JVRC_TASK_O1,
-    JVRC_TASK_O2,
-    JVRC_TASK_R1,
-    JVRC_TASK_R2,
-    JVRC_TASK_R3,
-    JVRC_TASK_R4,
-    JVRC_TASK_R5,
-    JVRC_TASK_R6
-};
-
-enum JVRCEventID {
-    JVRC_EVENT_START,
-    JVRC_EVENT_TARGET,
-    JVRC_EVENT_GATE_2,
-    JVRC_EVENT_GATE_3,
-    JVRC_EVENT_OBSTACLE,
-    JVRC_EVENT_DOOR,
-    JVRC_EVENT_HOSE,
-    JVRC_EVENT_NOZZLE,
-    JVRC_EVENT_CONNECT,
-    JVRC_EVENT_VALVE,
-    JVRC_EVENT_GOAL
-};
-*/
-
+class Mapping;
 class Listing;
-
-class JVRCEvent;
-typedef ref_ptr<JVRCEvent> JVRCEventPtr;
-
-class JVRCEventRecord;
-typedef ref_ptr<JVRCEventRecord> JVRCEventRecordPtr;
+class JVRCTask;
 
 
-class JVRCTask : public Referenced
-{
-public:
-    JVRCTask(const std::string& name);
-
-    const std::string& name() const { return name_; }
-    void addEvent(JVRCEventPtr event);
-    int numEvents() const { return events.size(); }
-    JVRCEventPtr event(int index) { return events[index]; }
-
-private:
-    std::string name_;
-    std::vector<JVRCEventPtr> events;
-};
-
-typedef ref_ptr<JVRCTask> JVRCTaskPtr;
-    
-   
 class JVRCEvent : public Referenced
 {
 public:
-    JVRCEvent(JVRCTaskPtr task, const std::string& type);
-    JVRCEvent(const JVRCEvent& event);
+    JVRCEvent(const std::string& type, JVRCTask* task, const Mapping& eventNode);
+    JVRCEvent(const JVRCEvent& org);
 
     virtual JVRCEvent* clone();
 
-    JVRCTaskPtr task() { return task_.lock(); }
+    JVRCTask* task() { return task_.lock(); }
+    const JVRCTask* task() const { return task_.lock(); }
     const std::string& type() const { return type_; }
     void setLabel(const std::string& label);
     const std::string& label() const { return label_; }
     void setLevel(int level) { level_ = level; }
     int level() const { return level_; }
-    //void setMaxNumEvents(int n);
-    //int maxNumEvents() const { return maxNumEvents_; }
 
     double time() const { return time_; }
     void setTime(double t) { time_ = t; }
@@ -90,13 +40,14 @@ public:
     //JVRCEventRecord* createRecord(double time);
 
 private:
-    weak_ref_ptr<JVRCTask> task_;
     std::string type_;
     std::string label_;
     int level_;
-    //int maxNumEvents_;
     double time_;
+    weak_ref_ptr<JVRCTask> task_;
 };
+
+typedef ref_ptr<JVRCEvent> JVRCEventPtr;
 
 
 class JVRCGateEvent : public JVRCEvent
@@ -104,20 +55,21 @@ class JVRCGateEvent : public JVRCEvent
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-    JVRCGateEvent(JVRCTaskPtr task);
+    JVRCGateEvent(JVRCTask* task, const Mapping& eventNode);
     JVRCGateEvent(const JVRCGateEvent& org);
     virtual JVRCEvent* clone();
     const Vector2& location(int which) const { return locations[which]; }
+    void setLocation(int which, const Vector2& p) { locations[which] = p; }
     int index() const { return index_; }
     void setIndex(int i) { index_ = i; }
-    bool isGoal() const { return isGoal_; }
-    void setGoal() { isGoal_ = true; }
+    bool isGoal() const;
 
 private:
-    Vector2 locations[2];
     int index_;
-    bool isGoal_;
+    Vector2 locations[2];
 };
+
+typedef ref_ptr<JVRCGateEvent> JVRCGateEventPtr;
 
 
 /*
@@ -136,6 +88,28 @@ private:
 */
 
 
+class JVRCTask : public Referenced
+{
+public:
+    JVRCTask(const std::string& name);
+
+    const std::string& name() const { return name_; }
+    void addEvent(JVRCEvent* event);
+    int numEvents() const { return events.size(); }
+    JVRCEvent* event(int index) { return events[index]; }
+
+    int numGates() const { return gates.size(); }
+    JVRCGateEvent* gate(int index) { return gates[index]; }
+
+private:
+    std::string name_;
+    std::vector<JVRCEventPtr> events;
+    std::vector<JVRCGateEventPtr> gates;
+};
+
+typedef ref_ptr<JVRCTask> JVRCTaskPtr;
+    
+   
 class JVRCTaskInfo : public Referenced
 {
 public:
