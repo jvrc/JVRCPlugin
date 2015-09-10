@@ -1,0 +1,19 @@
+language:
+  - cpp
+compiler:
+  - gcc
+env:
+  global:
+    - secure: "in4NBPHCGqETpY38HlYKsUMlUBaHyolitKn5xa0hFbVC5eEOWzv2HyOCeCO15FCsv35GIcjzm0d4vjDVYzNLApHQAI7NlTR+11Ut0MUqhu+vY/4AzRNoTWfZrGxIagbr0qGto7SvyXp3eKxYFUjfANbq+Krsr3GWdrVMT9w+ULco70fiITuynGx5X5RVpONmDkKPX4FWRT2XbHoeaBWDqJOAZcuH3Bd2j8Tmpy8leF4ZF9FilZEaHXzieYNvSdAz23GFALjqlQNmHEKEeElhgesWuAICQ9zAS+ynI9hpW+fgho13LTDyMVyYWtEPfnEXXCGopdrK6p1ciu7Fw1j9muQCpasGnb35DQvVXp3vJqlJR6R47kS1GslWcFBwgp4Qz7sc+sqGr5/VWhTbfH2mYOs7uqDURPW3VWDxp7Op5v1Wk+6XUHaJKuToSSL4SriarqW9OwTcjB5zrk4Rzj0HV0QiBTCCUlIiyUhewaMwLD7jvInZh7gUNcnHkOaNXRlKk7zX/yMGdovOpdaZW2gm1fVPy/0evojSUXMoH3/QsBAotLc75fTrxUEB0iTiYkCFmKsnHXljiStC597u+OGKxQzfq1jGieTo+CkeHe5Ts8Op2APX54nV9v2Supem1yubBU8+rY7gz03vsqZ3qx6t96K5eDlxP7QIxgvkE4QEwNE="
+script: source .travis.sh
+sudo: required
+after_success:
+  - set +x
+  - export GIT_COMMITTER_NAME=$GIT_NAME
+  - export GIT_COMMITTER_EMAIL=$GIT_EMAIL
+  - export GIT_AUTHOR_NAME=$GIT_NAME
+  - export GIT_AUTHOR_EMAIL=$GIT_EMAIL
+  - echo "TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST TRAVIS_BRANCH=$TRAVIS_BRANCH"
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then cd ~/;            fi
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then git clone --branch gh-pages https://github.com/$TRAVIS_REPO_SLUG jvrc;  fi
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then cd jvrc;           fi
