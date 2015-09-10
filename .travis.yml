@@ -17,3 +17,5 @@ after_success:
   - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then cd ~/;            fi
   - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then git clone --branch gh-pages https://github.com/$TRAVIS_REPO_SLUG jvrc;  fi
   - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then cd jvrc;           fi
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then cmake .;           fi
+  - if [ "$TRAVIS_PULL_REQUEST" == "false" -a "$TRAVIS_BRANCH" == "master" ]; then make;           fi
