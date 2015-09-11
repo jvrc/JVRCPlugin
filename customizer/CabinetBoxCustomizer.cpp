@@ -64,7 +64,7 @@ struct CabinetBoxCustomizer
 static const char** getTargetModelNames()
 {
     static const char* names[] = { 
-        "CABINETBOX",
+        "box",
         0 };
 	
     return names;
@@ -85,7 +85,7 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
     mv = MessageView::instance();
     mv->putln("The cabinet box customizer is running");
 
-    if (name == "CABINETBOX") {
+    if (name == "box") {
         customizer = new CabinetBoxCustomizer;
         customizer->bodyHandle = bodyHandle;
 
