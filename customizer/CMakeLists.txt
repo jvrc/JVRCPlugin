@@ -1,0 +1,2 @@
+add_cnoid_body_customizer(CabinetBoxCustomizer CabinetBoxCustomizer.cpp ${mofile})
+target_link_libraries(CabinetBoxCustomizer CnoidUtil)
