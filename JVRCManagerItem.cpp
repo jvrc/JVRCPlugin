@@ -14,6 +14,7 @@
 #include <cnoid/Archive>
 #include <cnoid/Body>
 #include <cnoid/LazyCaller>
+#include <cnoid/EigenUtil>
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/dynamic_bitset.hpp>
@@ -559,17 +560,26 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
     
     bool isHitting = false;
     Link* spreaderLink = spreader->rootLink();
+    const Vector3 orientation = -spreaderLink->T().linear().col(1);
     const Vector3 p = spreaderLink->T() * Vector3(0.007, -0.57, 0.0);
     Link* doorRoot = door->rootLink();
+    const Vector3 doorNormal = doorRoot->T().linear().col(0);
+    
     for(size_t i=0; i < doorTargetPoints.size(); ++i){
         const Vector3 q = doorRoot->T() * doorTargetPoints[i];
-        isHitting = (p - q).norm() < 0.05;
-        if(isHitting){
-            if(i != hitIndex){
-                hitCount = 0;
-                hitIndex = i;
+        double distance = (p - q).norm();
+        if(distance < 0.05){
+            double theta = acos(orientation.dot(doorNormal));
+            //cout << "theta = " << degree(theta) << endl;
+            static const double thresh = (180.0 - 15.0) * M_PI / 180.0;
+            if(theta > thresh){
+                isHitting = true;
+                if(i != hitIndex){
+                    hitCount = 0;
+                    hitIndex = i;
+                }
+                break;
             }
-            break;
         }
     }
 
