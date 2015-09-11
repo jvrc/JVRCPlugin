@@ -4,6 +4,7 @@
 
 #include "JVRCTaskInfo.h"
 #include <cnoid/YAMLReader>
+#include <boost/format.hpp>
 
 using namespace std;
 using namespace cnoid;
@@ -65,6 +66,9 @@ JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
     : JVRCEvent("gate", task, info)
 {
     index_ = 0;
+
+    isLabelSpecified = info->find("label")->isValid();
+    
     locations[0].setZero();
     locations[1].setZero();
 
@@ -94,6 +98,16 @@ JVRCGateEvent::JVRCGateEvent(const JVRCGateEvent& org)
 JVRCEvent* JVRCGateEvent::clone()
 {
     return new JVRCGateEvent(*this);
+}
+
+
+void JVRCGateEvent::setIndex(int i)
+{
+    index_ = i;
+
+    if(!isLabelSpecified){
+        setLabel(str(boost::format("Gate %1%") % (i + 1)));
+    }
 }
 
 

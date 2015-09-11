@@ -75,7 +75,8 @@ public:
     ScopedConnection robotConnection;
     JVRCTaskInfoPtr taskInfo;
     int currentTaskIndex;
-
+    double startTime;
+    
     QLabel scoreLabel;
     QLabel timeLabel;
     QLabel positionLabel;
@@ -237,7 +238,9 @@ JVRCScoreViewImpl::~JVRCScoreViewImpl()
 
 bool JVRCScoreViewImpl::onTimeChanged(double time)
 {
-    timeLabel.setText(toTimeString(time));
+    double s = manager->startingTime();
+    double t = (s > 0.0) ? time - s : 0.0;
+    timeLabel.setText(toTimeString(t));
     return false;
 }
 

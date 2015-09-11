@@ -35,6 +35,8 @@ public:
     JVRCTask* currentTask();
     SignalProxy<void()> sigCurrentTaskChanged();
 
+    double startingTime() const;
+
     SignalProxy<void(JVRCEventPtr event)> sigJVRCEvent();
         
     virtual bool isEnabled();

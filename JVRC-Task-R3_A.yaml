@@ -2,9 +2,7 @@ tasks:
   - name: R3_A
     events:
       - type: gate
-        label: Start
         location: [ [ 4.7, 3.0 ], [ 1.8, 3.0 ] ]
       - type: gate
-        label: Goal
         location: [ [ 4.7, 15.0 ], [ 1.8, 15.0 ] ]
     doorTargetPoints: [ [ 4.35, 9.96, 1.06 ], [ 4.3, 10.96, 1.11 ], [ 4.33, 10.94, 0.87 ] ]

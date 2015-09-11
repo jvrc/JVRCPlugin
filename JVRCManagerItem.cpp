@@ -52,6 +52,8 @@ public:
     JVRCTaskPtr currentTask;
     Signal<void()> sigCurrentTaskChanged;
 
+    double startingTime;
+
     Signal<void(JVRCEventPtr event)> sigJVRCEvent;
     int nextGateIndex;
     bool isInFrontOfGate;
@@ -88,6 +90,7 @@ public:
     void onItemsInWorldChanged();
     void initializeTask_R3_A();
     bool initializeSimulation(SimulatorItem* simulatorItem);
+    void onJVECEvent(JVRCEventPtr event);
     void startTask_R3_A();
     static int checkPositionalRelationshipWithGate(
         Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh);
@@ -151,6 +154,7 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 
 void JVRCManagerItemImpl::initialize()
 {
+    startingTime = 0.0;
     simulatorItem = 0;
     worldItem = 0;
     robotItem = 0;
@@ -158,6 +162,8 @@ void JVRCManagerItemImpl::initialize()
     spreaderItem = 0;
     isEnabled = true;
     taskInfo = new JVRCTaskInfo();
+
+    sigJVRCEvent.connect(boost::bind(&JVRCManagerItemImpl::onJVECEvent, this, _1));
 }
 
 
@@ -361,6 +367,12 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
 }
 
 
+double JVRCManagerItem::startingTime() const
+{
+    return impl->startingTime;
+}
+
+
 SignalProxy<void(JVRCEventPtr event)> JVRCManagerItem::sigJVRCEvent()
 {
     return impl->sigJVRCEvent;
@@ -396,6 +408,8 @@ bool JVRCManagerItem::initializeSimulation(SimulatorItem* simulatorItem)
 
 bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 {
+    startingTime = 0.0;
+    
     this->simulatorItem = simulatorItem;
 
     robotMarker = 0;
@@ -432,6 +446,17 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     }
     
     return true;
+}
+
+
+void JVRCManagerItemImpl::onJVECEvent(JVRCEventPtr event)
+{
+    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event.get());
+    if(gate){
+        if(gate->index() == 0){
+            startingTime = simulatorItem->simulationTime();
+        }
+    }
 }
 
 
@@ -510,7 +535,8 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
                 if(isInFrontOfGate){
                     os << "Gate " << gate->index() << " has been passed." << endl;
                     JVRCEvent* event = gate->clone();
-                    event->setTime(simulatorItem->currentTime());
+                    double time = simulatorItem->currentTime();
+                    event->setTime(time);
                     callLater(boost::bind(boost::ref(sigJVRCEvent), event));
                     ++nextGateIndex;
                 }
