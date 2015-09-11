@@ -61,11 +61,12 @@ public:
     const Vector3& location(int which) const { return locations[which]; }
     void setLocation(int which, const Vector3& p) { locations[which] = p; }
     int index() const { return index_; }
-    void setIndex(int i) { index_ = i; }
+    void setIndex(int i);
     bool isGoal() const;
 
 private:
     int index_;
+    bool isLabelSpecified;
     Vector3 locations[2];
 };
 
