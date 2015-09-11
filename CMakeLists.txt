@@ -5,7 +5,7 @@ if(NOT ENABLE_GUI)
   return()
 endif()
 
-option(BUILD_JVRC_PLUGIN "Building a plugin for handling JVRC" OFF)
+option(BUILD_JVRC_PLUGIN "Building a plugin and a customizer for JVRC" OFF)
 if(NOT BUILD_JVRC_PLUGIN)
   return()
 endif()
@@ -31,5 +31,7 @@ file(MAKE_DIRECTORY ${CNOID_SOURCE_SHARE_DIR}/jvrc)
 configure_file(JVRC-Task-R3_A.yaml ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
 
 configure_file(JVRC-Robot-Marker.wrl ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
+
+add_subdirectory(customizer)
 
 install(DIRECTORY ${CNOID_SOURCE_SHARE_DIR}/jvrc DESTINATION ${CNOID_SHARE_SUBDIR})
