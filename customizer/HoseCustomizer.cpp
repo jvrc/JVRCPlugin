@@ -55,7 +55,7 @@ struct JointValSet
     double* u_ptr;
 };
 
-struct HoseNewCustomizer
+struct HoseCustomizer
 {
     BodyHandle bodyHandle;
     JointValSet jointValSet[53];
@@ -64,7 +64,7 @@ struct HoseNewCustomizer
 static const char** getTargetModelNames()
 {
     static const char* names[] = { 
-        "HOSE",
+        "hose",
         0 };
 	
     return names;
@@ -72,7 +72,7 @@ static const char** getTargetModelNames()
 
 static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
 {
-    HoseNewCustomizer* customizer = 0;
+    HoseCustomizer* customizer = 0;
 
     int jointIndices[53];
     jointIndices[ 0] = bodyInterface->getLinkIndexFromName(bodyHandle, "hinge_hose0");
@@ -136,7 +136,7 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
     mv->putln("The hose customizer is running");
 
     if (name == "HOSE") {
-        customizer = new HoseNewCustomizer;
+        customizer = new HoseCustomizer;
         customizer->bodyHandle = bodyHandle;
 
 		for (int i = 0; i < 53; i++) {
@@ -162,7 +162,7 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
 
 static void destroy(BodyCustomizerHandle customizerHandle)
 {
-	HoseNewCustomizer* customizer = static_cast<HoseNewCustomizer*>(customizerHandle);
+	HoseCustomizer* customizer = static_cast<HoseCustomizer*>(customizerHandle);
     if(customizer){
         delete customizer;
     }
@@ -172,7 +172,7 @@ static void setVirtualJointForces(BodyCustomizerHandle customizerHandle)
 {
 	static const double PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348;
 
-    HoseNewCustomizer* customizer = static_cast<HoseNewCustomizer*>(customizerHandle);
+    HoseCustomizer* customizer = static_cast<HoseCustomizer*>(customizerHandle);
 
 	double q_act, q_ref, spring, damper, SpringTorque, DamperTorque, torque, bounded_torque, maxTorque;
 
