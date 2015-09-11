@@ -74,6 +74,7 @@ public:
     Body* spreader;
     Body* door;
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
+    std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetNormals;
     boost::dynamic_bitset<> doorDestroyFlags;
     int hitCount;
     int hitIndex;
@@ -289,9 +290,12 @@ void JVRCManagerItemImpl::initializeTask_R3_A()
     Listing& doorPointListing = *task->info()->findListing("doorTargetPoints");
     if(doorPointListing.isValid()){
         for(int i=0; i < doorPointListing.size(); ++i){
-            Listing& point = *doorPointListing[i].toListing();
-            if(point.size() == 3){
-                doorTargetPoints.push_back(Vector3(point[0].toDouble(), point[1].toDouble(), point[2].toDouble()));
+            Listing& p = *doorPointListing[i].toListing();
+            if(p.size() == 6){
+                Vector3 point(p[0].toDouble(), p[1].toDouble(), p[2].toDouble());
+                Vector3 normal(rotFromRpy(p[3].toDouble(), p[4].toDouble(), p[5].toDouble()).col(0));
+                doorTargetPoints.push_back(point);
+                doorTargetNormals.push_back(normal);
             }
         }
     }
@@ -568,9 +572,8 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
     for(size_t i=0; i < doorTargetPoints.size(); ++i){
         const Vector3 q = doorRoot->T() * doorTargetPoints[i];
         double distance = (p - q).norm();
-        if(distance < 0.05){
-            double theta = acos(orientation.dot(doorNormal));
-            //cout << "theta = " << degree(theta) << endl;
+        if(distance < 0.03){
+            double theta = acos(orientation.dot(doorTargetNormals[i]));
             static const double thresh = (180.0 - 15.0) * M_PI / 180.0;
             if(theta > thresh){
                 isHitting = true;
