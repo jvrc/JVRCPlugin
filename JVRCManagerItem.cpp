@@ -73,6 +73,7 @@ public:
     SphereMarkerDevicePtr spreaderHitMarker;
     Body* spreader;
     Body* door;
+    Vector3 spreaderEndPosition;
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetNormals;
     boost::dynamic_bitset<> doorDestroyFlags;
@@ -286,6 +287,8 @@ void JVRCManagerItemImpl::initializeTask_R3_A()
         return;
     }
 
+    spreaderEndPosition << 0.0, -0.415, 0.016;
+
     doorTargetPoints.clear();
     Listing& doorPointListing = *task->info()->findListing("doorTargetPoints");
     if(doorPointListing.isValid()){
@@ -303,9 +306,9 @@ void JVRCManagerItemImpl::initializeTask_R3_A()
         return;
     }
 
-    spreaderItem = worldItem->findItem<BodyItem>("R3A_spreader");
+    spreaderItem = worldItem->findItem<BodyItem>("spreader");
     if(spreaderItem){
-        os << (format(_("The spreader \"%1%\" of the task R3A has been detected.")) % spreaderItem->name()) << endl;
+        os << _("The spreader of the R3A task has been detected.") << endl;
         Body* spreader = spreaderItem->body();
         SphereMarkerDevice* marker = spreader->findDevice<SphereMarkerDevice>("HitMarker");
         if(!marker){
@@ -313,13 +316,13 @@ void JVRCManagerItemImpl::initializeTask_R3_A()
             marker->setId(0);
             marker->setName("HitMarker");
             marker->setLink(spreader->rootLink());
-            marker->setLocalTranslation(Vector3(0.007, -0.57, 0.0));
+            marker->setLocalTranslation(spreaderEndPosition);
             marker->on(false);
             marker->setRadius(minMarkerRadius);
             marker->setColor(Vector3f(1.0f, 1.0f, 0.0f));
             marker->setTransparency(0.4f);
             spreader->addDevice(marker);
-            os <<_("A virtual device to visualize the hits of the spreader's blades has been added to \"R3A_spreader.\"") << endl;
+            os <<_("A virtual device to visualize the hits of the blades has been added to the spreader model.\"") << endl;
             spreaderItem->notifyModelUpdate();
         }
     }
@@ -565,7 +568,7 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
     bool isHitting = false;
     Link* spreaderLink = spreader->rootLink();
     const Vector3 orientation = -spreaderLink->T().linear().col(1);
-    const Vector3 p = spreaderLink->T() * Vector3(0.007, -0.57, 0.0);
+    const Vector3 p = spreaderLink->T() * spreaderEndPosition;
     Link* doorRoot = door->rootLink();
     const Vector3 doorNormal = doorRoot->T().linear().col(0);
     
