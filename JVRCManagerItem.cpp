@@ -577,7 +577,7 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
         double distance = (p - q).norm();
         if(distance < 0.03){
             double theta = acos(orientation.dot(doorTargetNormals[i]));
-            static const double thresh = (180.0 - 15.0) * M_PI / 180.0;
+            static const double thresh = (180.0 - 5.0) * M_PI / 180.0;
             if(theta > thresh){
                 isHitting = true;
                 if(i != hitIndex){
