@@ -5,6 +5,10 @@
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <cnoid/MessageView>
+#include <cnoid/EigenUtil>
+/** ADDED BY KIKUUWE from here **/
+#include <cnoid/TimeBar> 
+/** ADDED BY KIKUUWE down to here **/
 
 #ifdef CNOID_BODY_CUSTOMIZER
 #include <cnoid/BodyCustomizerInterface>
@@ -53,20 +57,24 @@ struct JointValSet
     double* q_ptr;
     double* dq_ptr;
     double* u_ptr;
+    double  e ;  /* ADDED BY KIKUUWE */ 
+    double  p_prv ;  /* ADDED BY KIKUUWE */ 
 };
 
 struct CabinetBoxCustomizer
 {
     BodyHandle bodyHandle;
     JointValSet jointValSet[3];
+    double     SPTM;  /* ADDED BY KIKUUWE*/  
+    int        first_time ;/* ADDED BY KIKUUWE*/  
 };
 
 static const char** getTargetModelNames()
 {
     static const char* names[] = { 
-        "box",
+        "CABINETBOX",
         0 };
-	
+
     return names;
 }
 
@@ -76,8 +84,8 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
 
     int jointIndices[3];
     jointIndices[0] = bodyInterface->getLinkIndexFromName(bodyHandle, "hinge_door");
-	jointIndices[1] = bodyInterface->getLinkIndexFromName(bodyHandle, "hinge_doorknob");
-	jointIndices[2] = bodyInterface->getLinkIndexFromName(bodyHandle, "hinge_valve");
+    jointIndices[1] = bodyInterface->getLinkIndexFromName(bodyHandle, "hinge_doorknob");
+    jointIndices[2] = bodyInterface->getLinkIndexFromName(bodyHandle, "hinge_valve");
 
     string name(modelName);
 
@@ -85,26 +93,32 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
     mv = MessageView::instance();
     mv->putln("The cabinet box customizer is running");
 
-    if (name == "box") {
+    if (name == "CABINETBOX") {
         customizer = new CabinetBoxCustomizer;
         customizer->bodyHandle = bodyHandle;
+        customizer->SPTM       = TimeBar::instance()->timeStep(); /* ADDED BY KIKUUWE*/
+        customizer->first_time = 1;      /* ADDED BY KIKUUWE*/
 
-		for (int i = 0; i < 3; i++) {
-			
-			int jointIndex = jointIndices[i];
-			JointValSet& jointValSet = customizer->jointValSet[i];
+        for (int i = 0; i < 3; i++) {
 
-			if (jointIndex >= 0) {
-				jointValSet.q_ptr = bodyInterface->getJointValuePtr(bodyHandle, jointIndex);
-				jointValSet.dq_ptr = bodyInterface->getJointVelocityPtr(bodyHandle, jointIndex);
-				jointValSet.u_ptr = bodyInterface->getJointForcePtr(bodyHandle, jointIndex);
-			}
-			else {
-				jointValSet.q_ptr = NULL;
-				jointValSet.dq_ptr = NULL;
-				jointValSet.u_ptr = NULL;
-			}
-		}
+            int jointIndex = jointIndices[i];
+            JointValSet& jointValSet = customizer->jointValSet[i];
+
+            if (jointIndex >= 0) {
+                jointValSet.q_ptr = bodyInterface->getJointValuePtr(bodyHandle, jointIndex);
+                jointValSet.dq_ptr = bodyInterface->getJointVelocityPtr(bodyHandle, jointIndex);
+                jointValSet.u_ptr = bodyInterface->getJointForcePtr(bodyHandle, jointIndex);
+                jointValSet.e  = 0; // added by KIKUUWE
+                jointValSet.p_prv  = 0; // added by KIKUUWE
+            }
+            else {
+                jointValSet.q_ptr = NULL;
+                jointValSet.dq_ptr = NULL;
+                jointValSet.u_ptr = NULL;
+                jointValSet.e  = 0; // added by KIKUUWE
+                jointValSet.p_prv  = 0; // added by KIKUUWE
+            }
+        }
     }
     
     return static_cast<BodyCustomizerHandle>(customizer);
@@ -112,7 +126,7 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
 
 static void destroy(BodyCustomizerHandle customizerHandle)
 {
-	CabinetBoxCustomizer* customizer = static_cast<CabinetBoxCustomizer*>(customizerHandle);
+    CabinetBoxCustomizer* customizer = static_cast<CabinetBoxCustomizer*>(customizerHandle);
     if(customizer){
         delete customizer;
     }
@@ -122,52 +136,60 @@ static void setVirtualJointForces(BodyCustomizerHandle customizerHandle)
 {
     CabinetBoxCustomizer* customizer = static_cast<CabinetBoxCustomizer*>(customizerHandle);
 
-	double q_ref, spring, damper, SpringTorque, DamperTorque;
-
+    double q_ref, spring, damper, SpringTorque, DamperTorque;
+    double  FK, FB, FF ; // added by KIKUUWE
     MessageView* mv;
     mv = MessageView::instance();
 
-	for (int i = 0; i < 3; ++i) {
+    JointValSet& hingeDoor = customizer->jointValSet[0];
+    JointValSet& doornob = customizer->jointValSet[1];
 
-		JointValSet& theta = customizer->jointValSet[i];
-		
-		if (i == 0) {   // Door 
+    bool latch = false;
+    if( radian(-60.0) < *(doornob.q_ptr) &&  *(doornob.q_ptr) < radian(60.0))
+        latch = true;
 
-			if (*(theta.q_ptr) < 0.0) {
-				q_ref = 0.0;
-				spring = 50.0;
-				damper = 30.0;
-			}
-			else if (*(theta.q_ptr) < 1.54) {
-				q_ref = 0.0;
-				spring = 0.5;
-				damper = 1.5;
-			}
-			else {
-				q_ref = 1.54;
-				spring = 50.0;
-				damper = 30.0;
-			}
-		}
+    if( (0.0 < *(hingeDoor.q_ptr) && *(hingeDoor.q_ptr) < radian(5.0) && !latch) ||
+            (radian(5.0) <= *(hingeDoor.q_ptr) && *(hingeDoor.q_ptr) < 1.54) ){
+        *(hingeDoor.u_ptr) = -1 * (*(hingeDoor.dq_ptr));
+    }else{
+        if(*(hingeDoor.q_ptr) >= 1.54)
+            q_ref = 1.54;
+        else
+            q_ref = 0.0;
+        SpringTorque = 5000 * (*(hingeDoor.q_ptr) - q_ref);
+        DamperTorque = 100 * (*(hingeDoor.dq_ptr));
+        *(hingeDoor.u_ptr) = - SpringTorque - DamperTorque;
+    }
 
-		else if (i == 1) {   // Knob
+    for (int i = 1; i < 3; ++i) {
 
-			q_ref = 0.0;
-			spring = 0.4;
-			damper = 0.1;
-		}
+        JointValSet& theta = customizer->jointValSet[i];
 
-		else {   // Valve
+        if (i == 1) {   // Knob
+            FK = 18;//15; /* added by KIKUUWE, presliding stiffness in Nm/rad */
+            FB = FK * 0.05 ; /* added by KIKUUWE, presliding viscosity in Nms/rad */
+            FF =  2.5; /* added by KIKUUWE, friction torque in Nm */
+        } else {   // Valve
+            FK = 100.  ; /* added by KIKUUWE, presliding stiffness in Nm/rad */
+            FB = 0.1;//FK * 0.005;//FK * 0.05 ; /* added by KIKUUWE, presliding viscosity in Nms/rad */
+            FF = 5.0 ; /* added by KIKUUWE, friction torque in Nm */
+        }
 
-			q_ref = 0.0;
-			spring = 0.0;
-			damper = 1.0;
-		}
+        //  added by KIKUUWE
+            double  T  = customizer->SPTM  ;
+            double  v  = (customizer->first_time)?(0):(((*(theta.q_ptr))-theta.p_prv )/T);
+        //    double  v  = (*(theta.dq_ptr)) ;
+            double& e  = theta.e   ;
+            double  va = v + (FK*e)/(FK*T+FB);
+            double  fa = (FK*T+FB)*va ;
+            double  ff = (fa>FF)?FF:((fa>-FF)?fa:(-FF));
+            e = (FB*e + T*ff)/(FK*T+FB) ;
+           // ff = FK * *(theta.q_ptr) + FB * v ;
+            *(theta.u_ptr) = -ff ;
+            theta.p_prv =  (*(theta.q_ptr));
+    }
 
-		SpringTorque = spring * (*(theta.q_ptr) - q_ref);
-		DamperTorque = damper * (*(theta.dq_ptr));
-		*(theta.u_ptr) = - SpringTorque - DamperTorque;
-	}
+    customizer->first_time = 0; // ADDED BY KIKUUWE
 }
 
 extern "C" DLL_EXPORT
