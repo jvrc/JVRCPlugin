@@ -6,6 +6,8 @@
 #include <boost/bind.hpp>
 #include <cnoid/MessageView>
 
+#include <cnoid/TimeBar> 
+
 #ifdef CNOID_BODY_CUSTOMIZER
 #include <cnoid/BodyCustomizerInterface>
 #else
@@ -53,12 +55,16 @@ struct JointValSet
     double* q_ptr;
     double* dq_ptr;
     double* u_ptr;
+    double  e ;  /* ADDED BY KIKUUWE */ 
+    double  p_prv ;  /* ADDED BY KIKUUWE */ 
 };
 
 struct HoseCustomizer
 {
     BodyHandle bodyHandle;
     JointValSet jointValSet[53];
+    double     SPTM;  /* ADDED BY KIKUUWE*/  
+    int        first_time ;/* ADDED BY KIKUUWE*/ 
 };
 
 static const char** getTargetModelNames()
@@ -135,9 +141,11 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
     mv = MessageView::instance();
     mv->putln("The hose customizer is running");
 
-    if (name == "HOSE") {
+    if (name == "hose") {
         customizer = new HoseCustomizer;
         customizer->bodyHandle = bodyHandle;
+		customizer->SPTM       = TimeBar::instance()->timeStep(); /* ADDED BY KIKUUWE*/  
+		customizer->first_time = 1;      /* ADDED BY KIKUUWE*/
 
 		for (int i = 0; i < 53; i++) {
 			
@@ -148,11 +156,15 @@ static BodyCustomizerHandle create(BodyHandle bodyHandle, const char* modelName)
 				jointValSet.q_ptr = bodyInterface->getJointValuePtr(bodyHandle, jointIndex);
 				jointValSet.dq_ptr = bodyInterface->getJointVelocityPtr(bodyHandle, jointIndex);
 				jointValSet.u_ptr = bodyInterface->getJointForcePtr(bodyHandle, jointIndex);
+				jointValSet.e      = 0; // added by KIKUUWE
+				jointValSet.p_prv  = 0; // added by KIKUUWE
 			}
 			else {
 				jointValSet.q_ptr = NULL;
 				jointValSet.dq_ptr = NULL;
 				jointValSet.u_ptr = NULL;
+				jointValSet.e  = 0; // added by KIKUUWE
+				jointValSet.p_prv  = 0; // added by KIKUUWE
 			}
 		}
     }
@@ -170,8 +182,6 @@ static void destroy(BodyCustomizerHandle customizerHandle)
 
 static void setVirtualJointForces(BodyCustomizerHandle customizerHandle)
 {
-	static const double PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348;
-
     HoseCustomizer* customizer = static_cast<HoseCustomizer*>(customizerHandle);
 
 	double q_act, q_ref, spring, damper, SpringTorque, DamperTorque, torque, bounded_torque, maxTorque;
@@ -183,16 +193,42 @@ static void setVirtualJointForces(BodyCustomizerHandle customizerHandle)
 
 		JointValSet& theta = customizer->jointValSet[i];
 		
-		q_ref = 0.0;
-		spring = 0.01;
-		damper = 0.05;
+		if (*(theta.q_ptr) < -2.618) {
+			q_ref = -2.618;  // -2.618
+			spring = 0.05;   // 50.0
+			damper = 0.0;    // 0.0
+		}
+		else if (*(theta.q_ptr) < 2.618) {
+			q_ref = 0.0;    // 0.0
+			spring = 0.0;   // 0.1
+			damper = 0.001;   // 1.0
+		}
+		else {
+			q_ref = 2.618;  // -2.618
+			spring = 0.05;  // 50.0
+			damper = 0.0;   // 0.0
+		}
+		
+		double  FK = 0.01  ; // 0.01 // 100 /* presliding stiffness in Nm/rad ; This should be as high as possible. */ 
+		double  FB = FK*0.5 ; // FK*0.5 /* presliding viscosity in Nms/rad; This should be around 0.05 * FK or lower. */
+		double  FF = 10.0 ; // 10 // 0.01 /* friction torque in Nm; This is the static & kinetic friction force.  */ 
+		double  T  = customizer->SPTM  ;
+		double  v  = (customizer->first_time)?(0):(((*(theta.q_ptr))-theta.p_prv )/T);
+	//	double  v  = (*(theta.dq_ptr)) ; 
+		double& e  = theta.e   ; 
+		double  va = v + (FK*e)/(FK*T+FB);
+		double  fa = (FK*T+FB)*va ;
+		double  ff = (fa>FF)?FF:((fa>-FF)?fa:(-FF));
+		e = (FB*e + T*ff)/(FK*T+FB) ;  
+		theta.p_prv =  (*(theta.q_ptr));
 		
 		SpringTorque = spring * (*(theta.q_ptr) - q_ref);
 		DamperTorque = damper * (*(theta.dq_ptr));
 		torque = - SpringTorque - DamperTorque;
-
-		*(theta.u_ptr) = torque;
+		
+		*(theta.u_ptr) = torque - ff;
 	}
+	customizer->first_time = 0; // ADDED BY KIKUUWE
 }
 
 extern "C" DLL_EXPORT
