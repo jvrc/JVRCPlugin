@@ -4,6 +4,7 @@
 
 #include "JVRCTaskInfo.h"
 #include <cnoid/YAMLReader>
+#include <cnoid/YAMLWriter>
 #include <boost/format.hpp>
 
 using namespace std;
@@ -79,6 +80,23 @@ double JVRCEvent::time() const
 }
 
 
+void JVRCEvent::write(YAMLWriter& writer)
+{
+    writer.putKeyValue("type", type_);
+    writer.putKeyValue("label", label_);
+    JVRCTaskPtr task = task_.lock();
+    if(task){
+        writer.putKeyValue("task", task->name());
+    }
+    if(automaticRecordTime_){
+        writer.putKeyValue("autoTime", *automaticRecordTime_);
+    }
+    if(manualRecordTime_){
+        writer.putKeyValue("manualTime", *manualRecordTime_);
+    }
+}
+
+
 JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
     : JVRCEvent("gate", task, info)
 {
@@ -147,6 +165,13 @@ bool JVRCGateEvent::isGoal() const
         return index() == (t->numGates() - 1);
     }
     return false;
+}
+
+
+void JVRCGateEvent::write(YAMLWriter& writer)
+{
+    JVRCEvent::write(writer);
+    writer.putKeyValue("gateIndex", index_);
 }
 
 

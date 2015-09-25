@@ -89,6 +89,9 @@ public:
     QHBoxLayout buttonHBox2;
     QSpacerItem* buttonVBoxSpacer;
     vector<PushButton*> buttons;
+    PushButton resetButton;
+    PushButton giveupButton;
+    PushButton restartButton;
 
     EventListWidget eventList;
     int noColumn;
@@ -105,7 +108,6 @@ public:
     void updateTasks();
     void setCurrentTask(int taskIndex);
     void onEventButtonClicked(int index);
-    // void addEvent(JVRCEvent* event);
     void onRecordsUpdated();
     void removeSelectedEvents();
 };
@@ -220,6 +222,16 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     hh->setStretchLastSection(true);
     
     vbox->addWidget(&eventList);
+
+    hbox = new QHBoxLayout;
+    resetButton.setText("Reset");
+    hbox->addWidget(&resetButton);
+    restartButton.setText("Restart");
+    hbox->addWidget(&restartButton);
+    giveupButton.setText("Give Up");
+    hbox->addWidget(&giveupButton);
+    vbox->addLayout(hbox);
+    
     self->setLayout(vbox);
 
     manager = JVRCManagerItem::instance();

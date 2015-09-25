@@ -15,6 +15,7 @@
 #include <cnoid/Body>
 #include <cnoid/LazyCaller>
 #include <cnoid/EigenUtil>
+#include <cnoid/FileUtil>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
 
@@ -25,6 +26,7 @@
 using namespace std;
 using namespace cnoid;
 using boost::format;
+namespace filesystem = boost::filesystem;
 
 namespace {
 
@@ -56,6 +58,8 @@ public:
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
     Signal<void()> sigRecordsUpdated;
+    string recordFileBaseName;
+    string recordFileName;
     
     int nextGateIndex;
     bool isInFrontOfGate;
@@ -93,6 +97,8 @@ public:
     bool loadJVRCInfo(const std::string& filename);
     void recordEvent(JVRCEventPtr event, double time, bool isManual);
     JVRCEvent* findRecord(JVRCEvent* event);
+    void resetRecordFileName();
+    void saveRecords();    
     void onPositionChanged();
     void onItemsInWorldChanged();
     void initializeTask_R3_A();
@@ -105,6 +111,7 @@ public:
     void checkConnectionBetweenHoseAndNozzle();
     void finalizeSimulation();
     void doPutProperties(PutPropertyFunction& putProperty);
+    bool onRecordFilePropertyChanged(const std::string& filename);
     bool store(Archive& archive);
     bool restore(const Archive& archive);
 };
@@ -155,6 +162,7 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 {
     initialize();
     isEnabled = org.isEnabled;
+    recordFileBaseName = org.recordFileBaseName;
 }
 
 
@@ -168,6 +176,9 @@ void JVRCManagerItemImpl::initialize()
     spreaderItem = 0;
     isEnabled = true;
     taskInfo = new JVRCTaskInfo();
+
+    sigRecordsUpdated.connect(
+        boost::bind(&JVRCManagerItemImpl::saveRecords, this));
 }
 
 
@@ -251,7 +262,7 @@ void JVRCManagerItemImpl::recordEvent(JVRCEventPtr event, double time, bool isMa
             startingTime = simulatorItem->simulationTime();
         }
     }
-    
+
     sigRecordsUpdated();
 }
 
@@ -284,6 +295,48 @@ SignalProxy<void()> JVRCManagerItem::sigRecordsUpdated()
     return impl->sigRecordsUpdated;
 }
 
+
+void JVRCManagerItemImpl::resetRecordFileName()
+{
+    recordFileName.clear();
+    if(!recordFileBaseName.empty()){
+        for(int i=0; i < 1000; ++i){
+            string filename = str(format("%1%_%2$03d.yaml") % recordFileBaseName % i);
+            if(!filesystem::exists(filename)){
+                recordFileName = filename;
+                break;
+            }
+        }
+    }
+}
+
+
+void JVRCManagerItemImpl::saveRecords()
+{
+    if(recordFileName.empty()){
+        return;
+    }
+    YAMLWriter writer(recordFileName);
+    writer.setKeyOrderPreservationMode(true);
+    writer.putComment("JVRC Score Record File\n");
+
+    if(!records.empty()){
+
+        writer.startMapping();
+        writer.putKey("records");
+        writer.startListing();
+
+        for(size_t i=0; i < records.size(); ++i){
+            writer.startMapping();
+            records[i]->write(writer);
+            writer.endMapping();
+        }
+
+        writer.endListing();
+        writer.endMapping();
+    }
+}
+        
 
 void JVRCManagerItem::onPositionChanged()
 {
@@ -531,6 +584,8 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
             }
         }
     }
+
+    resetRecordFileName();
     
     return true;
 }
@@ -753,6 +808,15 @@ void JVRCManagerItem::doPutProperties(PutPropertyFunction& putProperty)
 void JVRCManagerItemImpl::doPutProperties(PutPropertyFunction& putProperty)
 {
     putProperty("Enabled", isEnabled, changeProperty(isEnabled));
+    putProperty("Record file", recordFileBaseName,
+                boost::bind(&JVRCManagerItemImpl::onRecordFilePropertyChanged, this, _1));
+}
+
+
+bool JVRCManagerItemImpl::onRecordFilePropertyChanged(const std::string& filename)
+{
+    recordFileBaseName = filename;
+    return true;
 }
 
 
@@ -766,6 +830,7 @@ bool JVRCManagerItem::store(Archive& archive)
 bool JVRCManagerItemImpl::store(Archive& archive)
 {
     archive.writeRelocatablePath("info", self->filePath());    
+    archive.write("recordFile", recordFileBaseName);
     return true;
 }
 
@@ -780,6 +845,7 @@ bool JVRCManagerItem::restore(const Archive& archive)
 bool JVRCManagerItemImpl::restore(const Archive& archive)
 {
     string filename;
+    archive.read("recordFile", recordFileBaseName);
     if(archive.readRelocatablePath("info", filename)){
         return self->load(filename);
     }

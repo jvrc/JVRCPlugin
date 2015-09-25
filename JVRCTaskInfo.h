@@ -48,6 +48,8 @@ public:
     
     double time() const;
 
+    virtual void write(YAMLWriter& writer);
+
 private:
     std::string type_;
     std::string label_;
@@ -74,6 +76,8 @@ public:
     int index() const { return index_; }
     void setIndex(int i);
     bool isGoal() const;
+
+    virtual void write(YAMLWriter& writer);
 
 private:
     int index_;
