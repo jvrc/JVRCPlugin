@@ -4,7 +4,6 @@
 */
 
 #include "JVRCManagerItem.h"
-#include "JVRCTaskInfo.h"
 #include "SphereMarkerDevice.h"
 #include "SceneNodeFinder.h"
 #include <cnoid/SimulatorItem>
@@ -16,6 +15,7 @@
 #include <cnoid/LazyCaller>
 #include <cnoid/EigenUtil>
 #include <cnoid/FileUtil>
+#include <cnoid/YAMLReader>
 #include <cnoid/ConnectionSet>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
@@ -46,9 +46,8 @@ public:
     ostream& os;
     bool isEnabled;
 
-    JVRCTaskInfoPtr taskInfo;
-    Signal<void()> sigTaskInfoUpdated;
-
+    std::vector<JVRCTaskPtr> tasks;
+    Signal<void()> sigTasksUpdated;
     JVRCTaskPtr currentTask;
     Signal<void()> sigCurrentTaskChanged;
 
@@ -177,7 +176,6 @@ void JVRCManagerItemImpl::initialize()
     robotMarkerLink = 0;
     spreaderItem = 0;
     isEnabled = true;
-    taskInfo = new JVRCTaskInfo();
 
     sigRecordsUpdated.connect(
         boost::bind(&JVRCManagerItemImpl::saveRecords, this));
@@ -196,15 +194,32 @@ JVRCManagerItemImpl::~JVRCManagerItemImpl()
 }
 
 
-JVRCTaskInfoPtr JVRCManagerItem::taskInfo()
+int JVRCManagerItem::numTasks() const
 {
-    return impl->taskInfo;
+    return impl->tasks.size();
 }
 
 
-SignalProxy<void()> JVRCManagerItem::sigTaskInfoUpdated()
+JVRCTask* JVRCManagerItem::task(int index)
 {
-    return impl->sigTaskInfoUpdated;
+    return impl->tasks[index];
+}
+
+
+JVRCTask* JVRCManagerItem::findTask(const std::string& name)
+{
+    for(size_t i=0; i < impl->tasks.size(); ++i){
+        if(impl->tasks[i]->name() == name){
+            return impl->tasks[i];
+        }
+    }
+    return 0;
+}
+
+
+SignalProxy<void()> JVRCManagerItem::sigTasksUpdated()
+{
+    return impl->sigTasksUpdated;
 }
 
 
@@ -413,7 +428,7 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
 
 void JVRCManagerItemImpl::initializeTask_R3_A()
 {
-    JVRCTask* task = taskInfo->findTask("R3_A");
+    JVRCTask* task = self->findTask("R3_A");
     if(!task){
         return;
     }
@@ -545,16 +560,25 @@ bool JVRCManagerItem::loadJVRCInfo(const std::string& filename)
 
 bool JVRCManagerItemImpl::loadJVRCInfo(const std::string& filename)
 {
+    tasks.clear();
     setCurrentTask(0);
-    
-    if(taskInfo->load(filename)){
-        sigTaskInfoUpdated();
-        if(taskInfo->numTasks() > 0){
-            setCurrentTask(taskInfo->task(0));
+
+    YAMLReader reader;
+    MappingPtr info = reader.loadDocument(filename)->toMapping();
+    const Listing& taskNodes = *info->findListing("tasks");
+    if(taskNodes.isValid()){
+        for(int i=0; i < taskNodes.size(); ++i){
+            tasks.push_back(new JVRCTask(taskNodes[i].toMapping()));
         }
-        return true;
     }
-    return false;
+
+    sigTasksUpdated();
+
+    if(tasks.size() > 0){
+        setCurrentTask(tasks[0]);
+    }
+
+    return true;
 }
 
 

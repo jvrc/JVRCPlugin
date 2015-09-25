@@ -19,7 +19,6 @@ class Mapping;
 class Listing;
 class JVRCTask;
 
-
 class JVRCEvent : public Referenced
 {
 public:
@@ -112,24 +111,6 @@ private:
 
 typedef ref_ptr<JVRCTask> JVRCTaskPtr;
     
-   
-class JVRCTaskInfo : public Referenced
-{
-public:
-    bool load(const std::string& filename);
-
-    int numTasks() const { return tasks.size(); }
-    JVRCTask* task(int index) { return tasks[index]; }
-    JVRCTask* findTask(const std::string& name);
-
-private:
-    std::vector<JVRCTaskPtr> tasks;
-
-    void readTasks(const Listing& taskNodes);
-};
-
-typedef ref_ptr<JVRCTaskInfo> JVRCTaskInfoPtr;
-
 }
 
 #endif

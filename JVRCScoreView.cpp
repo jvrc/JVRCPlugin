@@ -73,7 +73,6 @@ public:
     JVRCManagerItem* manager;
     BodyItem* robotItem;
     ScopedConnection robotConnection;
-    JVRCTaskInfoPtr taskInfo;
     int currentTaskIndex;
     TimeBar* timeBar;
     double startTime;
@@ -250,8 +249,7 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
         boost::bind(&JVRCScoreViewImpl::updateRobot, this));
     updateRobot();
 
-    taskInfo = manager->taskInfo();
-    manager->sigTaskInfoUpdated().connect(
+    manager->sigTasksUpdated().connect(
         boost::bind(&JVRCScoreViewImpl::updateTasks, this));
     updateTasks();
 
@@ -323,7 +321,7 @@ void JVRCScoreViewImpl::onRobotPositionChanged()
 
 void JVRCScoreViewImpl::onNextOrPrevButtonClicked(int direction)
 {
-    int taskIndex = std::max(0, std::min(currentTaskIndex + direction, taskInfo->numTasks() - 1));
+    int taskIndex = std::max(0, std::min(currentTaskIndex + direction, manager->numTasks() - 1));
     setCurrentTask(taskIndex);
 }
 
@@ -343,12 +341,12 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 
     bool isButtonBox2Used = false;
     
-    if(taskIndex >= taskInfo->numTasks()){
+    if(taskIndex >= manager->numTasks()){
         taskLabel.setText("");
         currentTaskIndex = 0;
 
     } else {
-        JVRCTask* task = taskInfo->task(taskIndex);
+        JVRCTask* task = manager->task(taskIndex);
         taskLabel.setText(QString("Task ") + task->name().c_str());
         const int n = task->numEvents();
         for(int i=0; i < n; ++i){
@@ -377,7 +375,7 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
     }
 
     prevButton.setEnabled(currentTaskIndex > 0);
-    nextButton.setEnabled(currentTaskIndex < taskInfo->numTasks() - 1);
+    nextButton.setEnabled(currentTaskIndex < manager->numTasks() - 1);
 }
 
 
@@ -400,10 +398,10 @@ void JVRCScoreViewImpl::onStartButtonClicked()
 
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
-    JVRCTask* task = taskInfo->task(currentTaskIndex);
+    JVRCTask* task = manager->task(currentTaskIndex);
     manager->recordEvent(task->event(index), currentTime());
 
-    if(currentTaskIndex + 1 < taskInfo->numTasks()){
+    if(currentTaskIndex + 1 < manager->numTasks()){
         setCurrentTask(currentTaskIndex + 1);
     }
 }

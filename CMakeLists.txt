@@ -12,9 +12,8 @@ endif()
 
 set(sources
   JVRCPlugin.cpp
-  JVRCTaskInfo.cpp
+  JVRCTask.cpp
   JVRCManagerItem.cpp
-  #JVRCBar.cpp
   JVRCScoreView.cpp
   SphereMarkerDevice.cpp
   SceneNodeFinder.cpp

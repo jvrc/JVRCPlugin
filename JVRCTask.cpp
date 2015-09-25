@@ -2,7 +2,7 @@
    @author Shin'ichiro Nakaoka
 */
 
-#include "JVRCTaskInfo.h"
+#include "JVRCTask.h"
 #include <cnoid/YAMLReader>
 #include <cnoid/YAMLWriter>
 #include <boost/format.hpp>
@@ -202,36 +202,4 @@ void JVRCTask::addEvent(JVRCEvent* event)
         gate->setIndex(gates.size());
         gates.push_back(gate);
     }
-}
-
-
-bool JVRCTaskInfo::load(const std::string& filename)
-{
-    YAMLReader reader;
-    MappingPtr info = reader.loadDocument(filename)->toMapping();
-    const Listing& taskNodes = *info->findListing("tasks");
-    if(taskNodes.isValid()){
-        readTasks(taskNodes);
-    }
-    return true;
-}
-
-
-void JVRCTaskInfo::readTasks(const Listing& taskNodes)
-{
-    tasks.clear();
-    for(int i=0; i < taskNodes.size(); ++i){
-        tasks.push_back(new JVRCTask(taskNodes[i].toMapping()));
-    }
-}
-
-
-JVRCTask* JVRCTaskInfo::findTask(const std::string& name)
-{
-    for(size_t i=0; i < tasks.size(); ++i){
-        if(tasks[i]->name() == name){
-            return tasks[i];
-        }
-    }
-    return 0;
 }

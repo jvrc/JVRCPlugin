@@ -6,7 +6,7 @@
 #ifndef CNOID_JVRC_PLUGIN_JVRC_MANAGER_ITEM_H
 #define CNOID_JVRC_PLUGIN_JVRC_MANAGER_ITEM_H
 
-#include "JVRCTaskInfo.h"
+#include "JVRCTask.h"
 #include <cnoid/SubSimulatorItem>
 #include <cnoid/BodyItem>
 
@@ -24,10 +24,13 @@ public:
     JVRCManagerItem(const JVRCManagerItem& org);
     ~JVRCManagerItem();
 
-    JVRCTaskInfoPtr taskInfo();
     bool loadJVRCInfo(const std::string& filename);
-    SignalProxy<void()> sigTaskInfoUpdated();
 
+    int numTasks() const;
+    JVRCTask* task(int index);
+    JVRCTask* findTask(const std::string& name);
+    SignalProxy<void()> sigTasksUpdated();
+    
     BodyItem* robotItem();
     Position robotMarkerPosition() const;
     SignalProxy<void()> sigRobotDetected();
