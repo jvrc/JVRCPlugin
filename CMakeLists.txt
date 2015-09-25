@@ -9,6 +9,9 @@ option(BUILD_JVRC_PLUGIN "Building a plugin and a customizer for JVRC" OFF)
 if(NOT BUILD_JVRC_PLUGIN)
   return()
 endif()
+if(NOT BUILD_PYTHON_PLUGIN)
+  message(FATAL_ERROR "DRCUserInterfacePlugin requires PythonPlugin")
+endif()
 
 set(sources
   JVRCPlugin.cpp
@@ -31,6 +34,7 @@ configure_file(JVRC-Task-R3_A.yaml ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
 
 configure_file(JVRC-Robot-Marker.wrl ${CNOID_SOURCE_SHARE_DIR}/jvrc COPYONLY)
 
-add_subdirectory(customizer)
-
 install(DIRECTORY ${CNOID_SOURCE_SHARE_DIR}/jvrc DESTINATION ${CNOID_SHARE_SUBDIR})
+
+add_subdirectory(customizer)
+add_subdirectory(python)

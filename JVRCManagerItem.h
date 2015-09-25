@@ -9,6 +9,7 @@
 #include "JVRCTask.h"
 #include <cnoid/SubSimulatorItem>
 #include <cnoid/BodyItem>
+#include "exportdecl.h"
 
 namespace cnoid {
 
