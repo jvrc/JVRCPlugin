@@ -53,6 +53,9 @@ public:
 
     double startingTime;
 
+    std::vector<JVRCEventPtr> records;
+    Signal<void()> sigRecordsUpdated;
+    
     Signal<void(JVRCEventPtr event)> sigJVRCEvent;
     int nextGateIndex;
     bool isInFrontOfGate;
@@ -201,6 +204,43 @@ bool JVRCManagerItem::isEnabled()
 ItemPtr JVRCManagerItem::doDuplicate() const
 {
     return new JVRCManagerItem(*this);
+}
+
+
+void JVRCManagerItem::clearRecords()
+{
+    impl->records.clear();
+    impl->sigRecordsUpdated();
+}
+
+
+int JVRCManagerItem::numRecords() const
+{
+    return impl->records.size();
+}
+
+
+JVRCEvent* JVRCManagerItem::record(int index)
+{
+    return impl->records[index];
+}
+
+
+void JVRCManagerItem::recordEvent(JVRCEvent* event, bool isManual)
+{
+
+}
+
+
+void JVRCManagerItem::removeManualRecord(int index)
+{
+    impl->records.erase(impl->records.begin() + index);
+}
+
+
+SignalProxy<void()> JVRCManagerItem::sigRecordsUpdated()
+{
+    return impl->sigRecordsUpdated;
 }
 
 
