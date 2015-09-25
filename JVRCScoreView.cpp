@@ -21,7 +21,7 @@
 
 using namespace std;
 using namespace cnoid;
-
+using namespace boost;
 
 namespace {
 
@@ -71,17 +71,19 @@ public:
     ~JVRCScoreViewImpl();
 
     JVRCManagerItem* manager;
-    TimeBar* timeBar;
     BodyItem* robotItem;
     ScopedConnection robotConnection;
     JVRCTaskInfoPtr taskInfo;
     int currentTaskIndex;
+    TimeBar* timeBar;
     double startTime;
     
     QLabel scoreLabel;
     QLabel timeLabel;
     QLabel positionLabel;
     QLabel taskLabel;
+    
+    PushButton startButton;
     PushButton prevButton;
     PushButton nextButton;
     QVBoxLayout buttonVBox;
@@ -101,12 +103,15 @@ public:
     int manualTimeColumn;
     int numColumns;
 
+    double currentTime() const;
     bool onTimeChanged(double time);
     void updateRobot();
     void onRobotPositionChanged();
     void onNextOrPrevButtonClicked(int direction);
     void updateTasks();
     void setCurrentTask(int taskIndex);
+    void onSimulationStateChanged(bool isDoingSimulation);
+    void onStartButtonClicked();
     void onEventButtonClicked(int index);
     void onRecordsUpdated();
     void removeSelectedEvents();
@@ -224,6 +229,10 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     vbox->addWidget(&eventList);
 
     hbox = new QHBoxLayout;
+    startButton.setText("Start");
+    startButton.sigClicked().connect(
+        boost::bind(&JVRCScoreViewImpl::onStartButtonClicked, this));
+    hbox->addWidget(&startButton);
     resetButton.setText("Reset");
     hbox->addWidget(&resetButton);
     restartButton.setText("Restart");
@@ -252,6 +261,10 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     timeBar = TimeBar::instance();
     timeBar->sigTimeChanged().connect(
         boost::bind(&JVRCScoreViewImpl::onTimeChanged, this, _1));
+
+    manager->sigSimulationStateChanged().connect(
+        boost::bind(&JVRCScoreViewImpl::onSimulationStateChanged, this, _1));
+    onSimulationStateChanged(false);
 }
 
 
@@ -267,11 +280,23 @@ JVRCScoreViewImpl::~JVRCScoreViewImpl()
 }
 
 
+double JVRCScoreViewImpl::currentTime() const
+{
+    double t = 0.0;
+    optional<double> s = manager->startingTime();
+    if(s){
+        t = (*s > 0.0) ? timeBar->time() - *s : 0.0;
+        if(t < 0.0){
+            t = 0.0;
+        }
+    }
+    return t;
+}    
+    
+
 bool JVRCScoreViewImpl::onTimeChanged(double time)
 {
-    double s = manager->startingTime();
-    double t = (s > 0.0) ? time - s : 0.0;
-    timeLabel.setText(toTimeString(t));
+    timeLabel.setText(toTimeString(currentTime()));
     return false;
 }
 
@@ -356,10 +381,27 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 }
 
 
+void JVRCScoreViewImpl::onSimulationStateChanged(bool isDoingSimulation)
+{
+    startButton.setEnabled(isDoingSimulation);
+    resetButton.setEnabled(isDoingSimulation);
+    restartButton.setEnabled(!isDoingSimulation);
+    giveupButton.setEnabled(isDoingSimulation);
+}
+
+
+void JVRCScoreViewImpl::onStartButtonClicked()
+{
+    if(manager->startTimer()){
+        startButton.setEnabled(false);
+    }
+}
+
+
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
     JVRCTask* task = taskInfo->task(currentTaskIndex);
-    manager->recordEvent(task->event(index), timeBar->time());
+    manager->recordEvent(task->event(index), currentTime());
 
     if(currentTaskIndex + 1 < taskInfo->numTasks()){
         setCurrentTask(currentTaskIndex + 1);

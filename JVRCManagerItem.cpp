@@ -16,6 +16,7 @@
 #include <cnoid/LazyCaller>
 #include <cnoid/EigenUtil>
 #include <cnoid/FileUtil>
+#include <cnoid/ConnectionSet>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
 
@@ -25,8 +26,7 @@
 
 using namespace std;
 using namespace cnoid;
-using boost::format;
-namespace filesystem = boost::filesystem;
+using namespace boost;
 
 namespace {
 
@@ -44,7 +44,6 @@ class JVRCManagerItemImpl
 public:
     JVRCManagerItem* self;
     ostream& os;
-    SimulatorItem* simulatorItem;
     bool isEnabled;
 
     JVRCTaskInfoPtr taskInfo;
@@ -53,7 +52,10 @@ public:
     JVRCTaskPtr currentTask;
     Signal<void()> sigCurrentTaskChanged;
 
-    double startingTime;
+    SimulatorItem* simulatorItem;
+    ScopedConnectionSet simulatorConnections;
+    optional<double> startingTime;
+    Signal<void(bool isDoingSimulation)> sigSimulationStateChanged;
 
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
@@ -168,7 +170,7 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 
 void JVRCManagerItemImpl::initialize()
 {
-    startingTime = 0.0;
+    startingTime = boost::none;
     simulatorItem = 0;
     worldItem = 0;
     robotItem = 0;
@@ -245,6 +247,10 @@ void JVRCManagerItem::recordEvent(JVRCEvent* event, double time, bool isManual)
 
 void JVRCManagerItemImpl::recordEvent(JVRCEventPtr event, double time, bool isManual)
 {
+    if(!startingTime){
+        self->startTimer();
+    }
+    
     JVRCEvent* record = findRecord(event);
     if(!record){
         record = event->clone();
@@ -254,13 +260,6 @@ void JVRCManagerItemImpl::recordEvent(JVRCEventPtr event, double time, bool isMa
         record->setManualRecordTime(time);
     } else {
         record->setAutomaticRecordTime(time);
-    }
-
-    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event.get());
-    if(gate){
-        if(gate->index() == 0){
-            startingTime = simulatorItem->simulationTime();
-        }
     }
 
     sigRecordsUpdated();
@@ -507,15 +506,34 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
 }
 
 
-double JVRCManagerItem::startingTime() const
+boost::optional<double> JVRCManagerItem::startTimer()
+{
+    if(impl->simulatorItem){
+        impl->startingTime = impl->simulatorItem->simulationTime();
+    }
+    return impl->startingTime;
+}
+
+
+boost::optional<double> JVRCManagerItem::startingTime() const
 {
     return impl->startingTime;
 }
 
 
+SignalProxy<void(bool isDoingSimulation)> JVRCManagerItem::sigSimulationStateChanged()
+{
+    return impl->sigSimulationStateChanged;
+}
+
+
 double JVRCManagerItemImpl::currentTime() const
 {
-    return simulatorItem->simulationTime() - startingTime;
+    if(startingTime && simulatorItem){
+        return simulatorItem->simulationTime() - *startingTime;
+    } else {
+        return 0.0;
+    }
 }
 
 
@@ -548,9 +566,14 @@ bool JVRCManagerItem::initializeSimulation(SimulatorItem* simulatorItem)
 
 bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 {
-    startingTime = 0.0;
+    startingTime = boost::none;
     
     this->simulatorItem = simulatorItem;
+
+    simulatorConnections.disconnect();
+    simulatorConnections.add(
+        simulatorItem->sigSimulationStarted().connect(
+            boost::bind(boost::ref(sigSimulationStateChanged), true)));
 
     robotMarker = 0;
     if(robotItem){
@@ -570,7 +593,6 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 
     startTask_R3_A();
 
-
     SimulationBody* simHose = simulatorItem->findSimulationBody("HOSE_TRIM_OBJ");
     if(simHose){
         SimulationBody* simNozzle = simulatorItem->findSimulationBody("NOZZLE_OBJ");
@@ -586,7 +608,7 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     }
 
     resetRecordFileName();
-    
+
     return true;
 }
 
@@ -795,7 +817,9 @@ void JVRCManagerItem::finalizeSimulation()
 
 void JVRCManagerItemImpl::finalizeSimulation()
 {
-
+    sigSimulationStateChanged(false);
+    simulatorConnections.disconnect();
+    simulatorItem = 0;
 }
 
 

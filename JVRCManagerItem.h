@@ -35,7 +35,9 @@ public:
     JVRCTask* currentTask();
     SignalProxy<void()> sigCurrentTaskChanged();
 
-    double startingTime() const;
+    boost::optional<double> startTimer();
+    boost::optional<double> startingTime() const;
+    SignalProxy<void(bool isDoingSimulation)> sigSimulationStateChanged();
 
     void clearRecords();
     int numRecords() const;
@@ -43,7 +45,7 @@ public:
     void recordEvent(JVRCEvent* event, double time, bool isManual = true);
     void removeManualRecord(int index);
     SignalProxy<void()> sigRecordsUpdated();
-        
+    
     virtual bool isEnabled();
     virtual bool initializeSimulation(SimulatorItem* simulatorItem);
     virtual void finalizeSimulation();
