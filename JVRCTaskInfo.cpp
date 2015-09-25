@@ -16,7 +16,6 @@ JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task)
       task_(task)
 {
     level_ = 0;
-    time_ = 0.0;
 }
 
 
@@ -35,8 +34,6 @@ JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info)
     if(info->read("level", level)){
         level_ = level;
     }
-
-    time_ = 0.0;
 }
 
 
@@ -44,6 +41,8 @@ JVRCEvent::JVRCEvent(const JVRCEvent& org)
     : type_(org.type_),
       label_(org.label_),
       level_(org.level_),
+      automaticRecordTime_(org.automaticRecordTime_),
+      manualRecordTime_(org.manualRecordTime_),
       task_(org.task_)
 {
 
@@ -59,6 +58,24 @@ void JVRCEvent::setLabel(const std::string& label)
 JVRCEvent* JVRCEvent::clone()
 {
     return new JVRCEvent(*this);
+}
+
+
+bool JVRCEvent::isSameAs(JVRCEvent* event)
+{
+    return (type_ == event->type_ && label_ == event->label_ && task_ == event->task_);
+}
+
+
+double JVRCEvent::time() const
+{
+    if(manualRecordTime_){
+        return *manualRecordTime_;
+    }
+    if(automaticRecordTime_){
+        return *automaticRecordTime_;
+    }
+    return 0.0;
 }
 
 
@@ -98,6 +115,18 @@ JVRCGateEvent::JVRCGateEvent(const JVRCGateEvent& org)
 JVRCEvent* JVRCGateEvent::clone()
 {
     return new JVRCGateEvent(*this);
+}
+
+
+bool JVRCGateEvent::isSameAs(JVRCEvent* event)
+{
+    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event);
+    if(gate){
+        if(index_ == gate->index_){
+            return JVRCEvent::isSameAs(event);
+        }
+    }
+    return false;
 }
 
 

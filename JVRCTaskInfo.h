@@ -9,6 +9,7 @@
 #include <cnoid/Referenced>
 #include <cnoid/EigenTypes>
 #include <cnoid/ValueTree>
+#include <boost/optional.hpp>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,8 @@ public:
 
     virtual JVRCEvent* clone();
 
+    virtual bool isSameAs(JVRCEvent* event);
+
     JVRCTask* task() { return task_.lock(); }
     const JVRCTask* task() const { return task_.lock(); }
     const std::string& type() const { return type_; }
@@ -36,14 +39,21 @@ public:
     void setLevel(int level) { level_ = level; }
     int level() const { return level_; }
 
-    double time() const { return time_; }
-    void setTime(double t) { time_ = t; }
+    boost::optional<double> automaticRecordTime() const { return automaticRecordTime_; }
+    void setAutomaticRecordTime(double t) { automaticRecordTime_ = t; }
+    boost::optional<double> manualRecordTime() const { return manualRecordTime_; }
+    void setManualRecordTime(double t) { manualRecordTime_ = t; }
+    void clearManualRecordTime() { manualRecordTime_ = boost::none; }
+    bool isTimeRecorded() const { return manualRecordTime_ || automaticRecordTime_; }
+    
+    double time() const;
 
 private:
     std::string type_;
     std::string label_;
     int level_;
-    double time_;
+    boost::optional<double> automaticRecordTime_;
+    boost::optional<double> manualRecordTime_;
     weak_ref_ptr<JVRCTask> task_;
 };
 
@@ -58,6 +68,7 @@ public:
     JVRCGateEvent(JVRCTask* task, Mapping* info);
     JVRCGateEvent(const JVRCGateEvent& org);
     virtual JVRCEvent* clone();
+    virtual bool isSameAs(JVRCEvent* event);
     const Vector3& location(int which) const { return locations[which]; }
     void setLocation(int which, const Vector3& p) { locations[which] = p; }
     int index() const { return index_; }

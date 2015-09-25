@@ -71,6 +71,7 @@ public:
     ~JVRCScoreViewImpl();
 
     JVRCManagerItem* manager;
+    TimeBar* timeBar;
     BodyItem* robotItem;
     ScopedConnection robotConnection;
     JVRCTaskInfoPtr taskInfo;
@@ -88,7 +89,14 @@ public:
     QHBoxLayout buttonHBox2;
     QSpacerItem* buttonVBoxSpacer;
     vector<PushButton*> buttons;
+
     EventListWidget eventList;
+    int noColumn;
+    int taskColumn;
+    int eventColumn;
+    int autoTimeColumn;
+    int manualTimeColumn;
+    int numColumns;
 
     bool onTimeChanged(double time);
     void updateRobot();
@@ -97,7 +105,8 @@ public:
     void updateTasks();
     void setCurrentTask(int taskIndex);
     void onEventButtonClicked(int index);
-    void addEvent(JVRCEvent* event);
+    // void addEvent(JVRCEvent* event);
+    void onRecordsUpdated();
     void removeSelectedEvents();
 };
 
@@ -191,16 +200,25 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
 
     eventList.setSelectionBehavior(QAbstractItemView::SelectRows);
     eventList.setSelectionMode(QAbstractItemView::ExtendedSelection);
-    eventList.setColumnCount(5);
+
+    noColumn = 0;
+    taskColumn = 1;
+    eventColumn = 2;
+    autoTimeColumn = 3;
+    manualTimeColumn = 4;
+    numColumns = 5;
+    eventList.setColumnCount(numColumns);
+    eventList.setHorizontalHeaderItem(noColumn, new EventItem("No."));
+    eventList.setHorizontalHeaderItem(taskColumn, new EventItem("Task"));
+    eventList.setHorizontalHeaderItem(eventColumn, new EventItem("Event"));
+    eventList.setHorizontalHeaderItem(autoTimeColumn, new EventItem("Time (Auto)"));
+    eventList.setHorizontalHeaderItem(manualTimeColumn, new EventItem("Time (Manual)"));
+
     eventList.verticalHeader()->hide();
     QHeaderView* hh = eventList.horizontalHeader();
     hh->setResizeMode(QHeaderView::ResizeToContents);
     hh->setStretchLastSection(true);
-    eventList.setHorizontalHeaderItem(0, new EventItem("No."));
-    eventList.setHorizontalHeaderItem(1, new EventItem("Time"));
-    eventList.setHorizontalHeaderItem(2, new EventItem("Task"));
-    eventList.setHorizontalHeaderItem(3, new EventItem("Event"));
-    eventList.setHorizontalHeaderItem(4, new EventItem("Elapsed"));
+    
     vbox->addWidget(&eventList);
     self->setLayout(vbox);
 
@@ -216,10 +234,11 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
         boost::bind(&JVRCScoreViewImpl::updateTasks, this));
     updateTasks();
 
-    manager->sigJVRCEvent().connect(
-        boost::bind(&JVRCScoreViewImpl::addEvent, this, _1));
+    manager->sigRecordsUpdated().connect(
+        boost::bind(&JVRCScoreViewImpl::onRecordsUpdated, this));
 
-    TimeBar::instance()->sigTimeChanged().connect(
+    timeBar = TimeBar::instance();
+    timeBar->sigTimeChanged().connect(
         boost::bind(&JVRCScoreViewImpl::onTimeChanged, this, _1));
 }
 
@@ -328,40 +347,39 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
     JVRCTask* task = taskInfo->task(currentTaskIndex);
-    JVRCEvent* event = task->event(index)->clone();
-    addEvent(event);
+    manager->recordEvent(task->event(index), timeBar->time());
+
+    if(currentTaskIndex + 1 < taskInfo->numTasks()){
+        setCurrentTask(currentTaskIndex + 1);
+    }
 }
 
 
-void JVRCScoreViewImpl::addEvent(JVRCEvent* event)
+void JVRCScoreViewImpl::onRecordsUpdated()
 {
-    int eventIndex = eventList.rowCount();
-    eventList.insertRow(0);
-    eventList.setItem(0, 0, new EventItem(QString("%1").arg(eventIndex, 2, 10, QLatin1Char('0')), event));
-    eventList.setItem(0, 1, new EventItem(toTimeString(event->time())));
-    eventList.setItem(0, 2, new EventItem(event->task()->name().c_str()));
-    eventList.setItem(0, 3, new EventItem(event->label().c_str()));
+    const int n = manager->numRecords();
+    eventList.setSortingEnabled(false);
+    eventList.setRowCount(0);
 
-    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event);
-    if(gate && gate->isGoal()){
-        JVRCEvent* start = 0;
-        for(int i=1; i < eventList.rowCount(); ++i){
-            EventItem* item = static_cast<EventItem*>(eventList.item(i, 0));
-            JVRCEvent* record = item->record;
-            if(JVRCGateEvent* gateRecord = dynamic_cast<JVRCGateEvent*>(record)){
-                if(gateRecord->task() == gate->task() && gateRecord->index() == 0){
-                    start = item->record;
-                    break;
-                }
+    for(int index=0; index < n; ++index){
+        JVRCEvent* record = manager->record(index);
+        if(record->isTimeRecorded()){
+            eventList.insertRow(0);
+            int row = 0;
+            eventList.setItem(row, noColumn, new EventItem(QString("%1").arg(index, 2, 10, QLatin1Char('0')), record));
+            eventList.setItem(row, taskColumn, new EventItem(record->task()->name().c_str()));
+            eventList.setItem(row, eventColumn, new EventItem(record->label().c_str()));
+            
+            if(record->automaticRecordTime()){
+                eventList.setItem(row, autoTimeColumn, new EventItem(toTimeString(*record->automaticRecordTime())));
+            }
+            if(record->manualRecordTime()){
+                eventList.setItem(row, manualTimeColumn, new EventItem(toTimeString(*record->manualRecordTime())));
             }
         }
-        if(start){
-            eventList.setItem(0, 4, new EventItem(toTimeString(gate->time() - start->time())));
-        }
-        if(currentTaskIndex + 1 < taskInfo->numTasks()){
-            setCurrentTask(currentTaskIndex + 1);
-        }
     }
+
+    eventList.setSortingEnabled(true);
 }
 
 

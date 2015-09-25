@@ -37,12 +37,10 @@ public:
 
     double startingTime() const;
 
-    SignalProxy<void(JVRCEventPtr event)> sigJVRCEvent();
-
     void clearRecords();
     int numRecords() const;
     JVRCEvent* record(int index);
-    void recordEvent(JVRCEvent* event, bool isManual);
+    void recordEvent(JVRCEvent* event, double time, bool isManual = true);
     void removeManualRecord(int index);
     SignalProxy<void()> sigRecordsUpdated();
         

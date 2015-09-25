@@ -53,10 +53,10 @@ public:
 
     double startingTime;
 
-    std::vector<JVRCEventPtr> records;
+    typedef std::vector<JVRCEventPtr> RecordList;
+    RecordList records;
     Signal<void()> sigRecordsUpdated;
     
-    Signal<void(JVRCEventPtr event)> sigJVRCEvent;
     int nextGateIndex;
     bool isInFrontOfGate;
     bool isPassingGate;
@@ -89,12 +89,14 @@ public:
     ~JVRCManagerItemImpl();
     void initialize();
     void setCurrentTask(JVRCTask* task);
+    double currentTime() const;
     bool loadJVRCInfo(const std::string& filename);
+    void recordEvent(JVRCEventPtr event, double time, bool isManual);
+    JVRCEvent* findRecord(JVRCEvent* event);
     void onPositionChanged();
     void onItemsInWorldChanged();
     void initializeTask_R3_A();
     bool initializeSimulation(SimulatorItem* simulatorItem);
-    void onJVECEvent(JVRCEventPtr event);
     void startTask_R3_A();
     static int checkPositionalRelationshipWithGate(
         Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh);
@@ -166,8 +168,6 @@ void JVRCManagerItemImpl::initialize()
     spreaderItem = 0;
     isEnabled = true;
     taskInfo = new JVRCTaskInfo();
-
-    sigJVRCEvent.connect(boost::bind(&JVRCManagerItemImpl::onJVECEvent, this, _1));
 }
 
 
@@ -226,15 +226,56 @@ JVRCEvent* JVRCManagerItem::record(int index)
 }
 
 
-void JVRCManagerItem::recordEvent(JVRCEvent* event, bool isManual)
+void JVRCManagerItem::recordEvent(JVRCEvent* event, double time, bool isManual)
 {
+    impl->recordEvent(event, time, isManual);
+}
 
+
+void JVRCManagerItemImpl::recordEvent(JVRCEventPtr event, double time, bool isManual)
+{
+    JVRCEvent* record = findRecord(event);
+    if(!record){
+        record = event->clone();
+        records.push_back(record);
+    }
+    if(isManual){
+        record->setManualRecordTime(time);
+    } else {
+        record->setAutomaticRecordTime(time);
+    }
+
+    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event.get());
+    if(gate){
+        if(gate->index() == 0){
+            startingTime = simulatorItem->simulationTime();
+        }
+    }
+    
+    sigRecordsUpdated();
+}
+
+
+JVRCEvent* JVRCManagerItemImpl::findRecord(JVRCEvent* event)
+{
+    for(RecordList::reverse_iterator p = records.rbegin(); p != records.rend(); ++p){
+        JVRCEvent* record = *p;
+        if(record->isSameAs(event)){
+            return record;
+        }
+    }
+    return 0;
 }
 
 
 void JVRCManagerItem::removeManualRecord(int index)
 {
-    impl->records.erase(impl->records.begin() + index);
+    JVRCEvent* record = impl->records[index];
+    record->clearManualRecordTime();
+    if(!record->isTimeRecorded()){
+        impl->records.erase(impl->records.begin() + index);
+    }
+    sigRecordsUpdated();
 }
 
 
@@ -419,9 +460,9 @@ double JVRCManagerItem::startingTime() const
 }
 
 
-SignalProxy<void(JVRCEventPtr event)> JVRCManagerItem::sigJVRCEvent()
+double JVRCManagerItemImpl::currentTime() const
 {
-    return impl->sigJVRCEvent;
+    return simulatorItem->simulationTime() - startingTime;
 }
 
 
@@ -492,17 +533,6 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     }
     
     return true;
-}
-
-
-void JVRCManagerItemImpl::onJVECEvent(JVRCEventPtr event)
-{
-    JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event.get());
-    if(gate){
-        if(gate->index() == 0){
-            startingTime = simulatorItem->simulationTime();
-        }
-    }
 }
 
 
@@ -580,10 +610,7 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
                 robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
                 if(isInFrontOfGate){
                     os << "Gate " << gate->index() << " has been passed." << endl;
-                    JVRCEvent* event = gate->clone();
-                    double time = simulatorItem->currentTime();
-                    event->setTime(time);
-                    callLater(boost::bind(boost::ref(sigJVRCEvent), event));
+                    callLater(boost::bind(&JVRCManagerItemImpl::recordEvent, this, gate, currentTime(), false));
                     ++nextGateIndex;
                 }
             } else {
@@ -638,17 +665,14 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 
                     JVRCEvent* event = new JVRCEvent("action", currentTask);
                     event->setLabel(str(format("Spreader %1%") % hitIndex));
-                    event->setTime(simulatorItem->currentTime());
-                    callLater(boost::bind(boost::ref(sigJVRCEvent), event));
-
+                    callLater(boost::bind(&JVRCManagerItemImpl::recordEvent, this, event, currentTime(), false));
                     
                     if(doorDestroyFlags.count() == doorDestroyFlags.size()){
                         doorRoot->T().translation().z() -= 2.0;
 
                         JVRCEvent* event = new JVRCEvent("action", currentTask);
                         event->setLabel("Door");
-                        event->setTime(simulatorItem->currentTime());
-                        callLater(boost::bind(boost::ref(sigJVRCEvent), event));
+                        callLater(boost::bind(&JVRCManagerItemImpl::recordEvent, this, event, currentTime(), false));
                     }
                     hitCount = 0;
                 }
