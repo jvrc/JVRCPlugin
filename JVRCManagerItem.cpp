@@ -15,8 +15,6 @@
 #include <cnoid/Body>
 #include <cnoid/LazyCaller>
 #include <cnoid/EigenUtil>
-#include <boost/tokenizer.hpp>
-#include <boost/algorithm/string.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
 
