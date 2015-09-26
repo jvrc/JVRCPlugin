@@ -25,6 +25,7 @@ BOOST_PYTHON_MODULE(JVRCPlugin)
 
     class_<JVRCManagerItem, JVRCManagerItemPtr, bases<Item>, boost::noncopyable>("JVRCManagerItem", no_init)
         .def("instance", JVRCManagerItem_instance).staticmethod("instance")
+        .def("startingPosition", &JVRCManagerItem::startingPosition)
         ;
 
     implicitly_convertible<JVRCManagerItemPtr, ItemPtr>();

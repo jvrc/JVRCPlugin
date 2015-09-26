@@ -223,6 +223,26 @@ SignalProxy<void()> JVRCManagerItem::sigTasksUpdated()
 }
 
 
+Position JVRCManagerItem::startingPosition() const
+{
+    Position T = Position::Identity();
+    if(!impl->tasks.empty()){
+        JVRCTask* task = impl->tasks.front();
+        if(task->numGates() > 0){
+            JVRCGateEvent* gate = task->gate(0);
+            Vector3 c = (gate->location(0) + gate->location(1)) / 2.0;
+            Vector3 y = (gate->location(1) - gate->location(0)).normalized();
+            Vector3 x = y.cross(Vector3::UnitZ());
+            T.translation() = c - x;
+            T.linear().col(0) = x;
+            T.linear().col(1) = y;
+            T.linear().col(2) = Vector3::UnitZ();
+        }
+    }
+    return T;
+}
+            
+
 bool JVRCManagerItem::isEnabled()
 {
     return impl->isEnabled;

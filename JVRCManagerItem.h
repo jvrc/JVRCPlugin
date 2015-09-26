@@ -31,6 +31,7 @@ public:
     JVRCTask* task(int index);
     JVRCTask* findTask(const std::string& name);
     SignalProxy<void()> sigTasksUpdated();
+    Position startingPosition() const;
     
     BodyItem* robotItem();
     Position robotMarkerPosition() const;

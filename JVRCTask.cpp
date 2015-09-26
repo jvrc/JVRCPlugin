@@ -112,8 +112,9 @@ JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
         if(location.size() == 2){
             for(int i=0; i < 2; ++i){
                 const Listing& p = *location[i].toListing();
-                if(p.size() == 2){
-                    locations[i] << p[0].toDouble(), p[1].toDouble(), 0.0;
+                int n = std::min(3, p.size());
+                for(int j=0; j < n; ++j){
+                    locations[i][j] = p[j].toDouble();
                 }
             }
         }
