@@ -44,7 +44,6 @@ class JVRCManagerItemImpl
 public:
     JVRCManagerItem* self;
     ostream& os;
-    bool isEnabled;
 
     std::vector<JVRCTaskPtr> tasks;
     Signal<void()> sigTasksUpdated;
@@ -162,7 +161,6 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
       os(MessageView::instance()->cout())
 {
     initialize();
-    isEnabled = org.isEnabled;
     recordFileBaseName = org.recordFileBaseName;
 }
 
@@ -175,7 +173,6 @@ void JVRCManagerItemImpl::initialize()
     robotItem = 0;
     robotMarkerLink = 0;
     spreaderItem = 0;
-    isEnabled = true;
 
     sigRecordsUpdated.connect(
         boost::bind(&JVRCManagerItemImpl::saveRecords, this));
@@ -242,12 +239,6 @@ Position JVRCManagerItem::startingPosition() const
     return T;
 }
             
-
-bool JVRCManagerItem::isEnabled()
-{
-    return impl->isEnabled;
-}
-
 
 ItemPtr JVRCManagerItem::doDuplicate() const
 {
@@ -869,13 +860,13 @@ void JVRCManagerItemImpl::finalizeSimulation()
 
 void JVRCManagerItem::doPutProperties(PutPropertyFunction& putProperty)
 {
+    SubSimulatorItem::doPutProperties(putProperty);
     impl->doPutProperties(putProperty);
 }
 
 
 void JVRCManagerItemImpl::doPutProperties(PutPropertyFunction& putProperty)
 {
-    putProperty("Enabled", isEnabled, changeProperty(isEnabled));
     putProperty("Record file", recordFileBaseName,
                 boost::bind(&JVRCManagerItemImpl::onRecordFilePropertyChanged, this, _1));
 }

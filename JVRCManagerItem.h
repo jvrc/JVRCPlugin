@@ -51,7 +51,6 @@ public:
     void removeManualRecord(int index);
     SignalProxy<void()> sigRecordsUpdated();
     
-    virtual bool isEnabled();
     virtual bool initializeSimulation(SimulatorItem* simulatorItem);
     virtual void finalizeSimulation();
 
