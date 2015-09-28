@@ -681,7 +681,10 @@ void JVRCManagerItemImpl::startTask_R3_A()
 int JVRCManagerItemImpl::checkPositionalRelationshipWithGate
 (Vector3 p, const Vector3& g1, const Vector3& g2, double distanceThresh)
 {
-    p.z() = 0.0;
+    if(p.z() < g1.z()){
+        return 0;
+    }
+    p.z() = g1.z();
     
     if((g2 - g1).dot(p - g1) < 0.0){
         return 0;
