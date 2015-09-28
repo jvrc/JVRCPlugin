@@ -60,6 +60,7 @@ public:
     Signal<void()> sigRecordUpdated;
     string recordFileBaseName;
     string recordFileName;
+    int score;
     
     int nextGateIndex;
     bool isInFrontOfGate;
@@ -97,6 +98,7 @@ public:
     bool loadJVRCInfo(const std::string& filename);
     void addRecord(JVRCEventPtr event, double time, bool isManual);
     JVRCEvent* findRecord(JVRCEvent* event);
+    void notifyRecordUpdate();
     void resetRecordFileName();
     void saveRecords();    
     void onPositionChanged();
@@ -169,6 +171,7 @@ void JVRCManagerItemImpl::initialize()
 {
     startingTime = boost::none;
     simulatorItem = 0;
+    score = 0;
     worldItem = 0;
     robotItem = 0;
     robotMarkerLink = 0;
@@ -288,7 +291,7 @@ void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isManu
         record->setAutomaticRecordTime(time);
     }
 
-    sigRecordUpdated();
+    notifyRecordUpdate();
 }
 
 
@@ -311,7 +314,7 @@ void JVRCManagerItem::removeManualRecord(int index)
     if(!record->isTimeRecorded()){
         impl->records.erase(impl->records.begin() + index);
     }
-    sigRecordUpdated();
+    notifyRecordUpdate();
 }
 
 
@@ -323,9 +326,25 @@ SignalProxy<void()> JVRCManagerItem::sigRecordUpdated()
 
 void JVRCManagerItem::notifyRecordUpdate()
 {
+    impl->notifyRecordUpdate();
+}
+
+
+void JVRCManagerItemImpl::notifyRecordUpdate()
+{
     //! \todo remove the records that do not have any time stamps
-    
-    impl->sigRecordUpdated();
+
+    score = 0;
+    for(size_t i=0; i < records.size(); ++i){
+        score += records[i]->point();
+    }
+    sigRecordUpdated();
+}
+
+
+int JVRCManagerItem::score() const
+{
+    return impl->score;
 }
 
 

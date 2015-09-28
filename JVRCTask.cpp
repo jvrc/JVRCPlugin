@@ -16,6 +16,7 @@ JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task)
       label_(type),
       task_(task)
 {
+    point_ = 0;
     level_ = 0;
 }
 
@@ -25,22 +26,16 @@ JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info)
       label_(type),
       task_(task)
 {
-    string label;
-    if(info->read("label", label)){
-        label_ = label;
-    }
-
-    level_ = 0;
-    int level;
-    if(info->read("level", level)){
-        level_ = level;
-    }
+    info->read("label", label_);
+    point_ = info->get("point", 0);
+    level_ = info->get("level", 0);
 }
 
 
 JVRCEvent::JVRCEvent(const JVRCEvent& org)
     : type_(org.type_),
       label_(org.label_),
+      point_(org.point_),
       level_(org.level_),
       automaticRecordTime_(org.automaticRecordTime_),
       manualRecordTime_(org.manualRecordTime_),

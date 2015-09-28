@@ -52,6 +52,8 @@ public:
     SignalProxy<void()> sigRecordUpdated();
     void notifyRecordUpdate();
     
+    int score() const;
+
     virtual bool initializeSimulation(SimulatorItem* simulatorItem);
     virtual void finalizeSimulation();
 

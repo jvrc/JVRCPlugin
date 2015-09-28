@@ -35,6 +35,8 @@ public:
     const std::string& type() const { return type_; }
     void setLabel(const std::string& label);
     const std::string& label() const { return label_; }
+    int point() const { return point_; }
+    void setPoint(int p) { point_ = p; }
     void setLevel(int level) { level_ = level; }
     int level() const { return level_; }
 
@@ -52,6 +54,7 @@ public:
 private:
     std::string type_;
     std::string label_;
+    int point_;
     int level_;
     boost::optional<double> automaticRecordTime_;
     boost::optional<double> manualRecordTime_;

@@ -115,6 +115,7 @@ public:
     int autoTimeColumn;
     int adoptAutoTimeButtonColumn;
     int manualTimeColumn;
+    int pointColumn;
     int numColumns;
 
     double currentTime() const;
@@ -244,28 +245,32 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     autoTimeColumn = 3;
     adoptAutoTimeButtonColumn = 4;
     manualTimeColumn = 5;
-    numColumns = 6;
+    pointColumn = 6;
+    numColumns = 7;
     recordTable.setColumnCount(numColumns);
 
     recordTable.setHorizontalHeaderItem(noColumn, new QTableWidgetItem("No."));
     header->setResizeMode(noColumn, QHeaderView::ResizeToContents);
 
     recordTable.setHorizontalHeaderItem(taskColumn, new QTableWidgetItem("Task"));
-    header->setResizeMode(taskColumn, QHeaderView::Stretch);
+    header->setResizeMode(taskColumn, QHeaderView::ResizeToContents);
     recordTable.setColumnHidden(taskColumn, true);
     
     recordTable.setHorizontalHeaderItem(eventColumn, new QTableWidgetItem("Event"));
-    header->setResizeMode(eventColumn, QHeaderView::Stretch);
+    header->setResizeMode(eventColumn, QHeaderView::ResizeToContents);
 
     recordTable.setHorizontalHeaderItem(autoTimeColumn, new QTableWidgetItem("Detected Time"));
-    header->setResizeMode(autoTimeColumn, QHeaderView::Stretch);
+    header->setResizeMode(autoTimeColumn, QHeaderView::ResizeToContents);
 
     recordTable.setHorizontalHeaderItem(adoptAutoTimeButtonColumn, new QTableWidgetItem(""));
     header->setResizeMode(adoptAutoTimeButtonColumn, QHeaderView::ResizeToContents);
     
     recordTable.setHorizontalHeaderItem(manualTimeColumn, new QTableWidgetItem("Judged Time"));
-    header->setResizeMode(manualTimeColumn, QHeaderView::Stretch);
+    header->setResizeMode(manualTimeColumn, QHeaderView::ResizeToContents);
 
+    recordTable.setHorizontalHeaderItem(pointColumn, new QTableWidgetItem("Point"));
+    header->setResizeMode(pointColumn, QHeaderView::Stretch);
+    
     vbox->addWidget(&recordTable);
 
     hbox = new QHBoxLayout;
@@ -456,6 +461,8 @@ void JVRCScoreViewImpl::onEventButtonClicked(int index)
 
 void JVRCScoreViewImpl::onRecordUpdated()
 {
+    scoreLabel.setText(QString("%1").arg(manager->score(), 2, 10));
+    
     const int n = manager->numRecords();
     recordTable.setSortingEnabled(false);
     recordTable.setRowCount(0);
@@ -478,11 +485,20 @@ void JVRCScoreViewImpl::onRecordUpdated()
                     boost::bind(&JVRCScoreViewImpl::onAdoptAutoTimeButtonClicked, this, index));
                 recordTable.setCellWidget(row, adoptAutoTimeButtonColumn, button);
             }
+            RecordItem* pointItem = 0;
             if(record->manualRecordTime()){
                 recordTable.setItem(row, manualTimeColumn, new RecordItem(index, toTimeString(*record->manualRecordTime()), true));
+                if(record->point() > 0){
+                    pointItem = new RecordItem(index, QString("%1").arg(record->point()));
+                }
             } else {
                 recordTable.setItem(row, manualTimeColumn, new RecordItem(index, ""));
             }
+
+            if(!pointItem){
+                pointItem = new RecordItem(index, "");
+            }
+            recordTable.setItem(row, pointColumn, pointItem);
         }
     }
 
