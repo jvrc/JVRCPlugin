@@ -180,6 +180,10 @@ JVRCTask::JVRCTask(Mapping* info)
     : info_(info)
 {
     name_ = info->read<string>("name");
+
+    double m = info->get("timeLimit", 10.0);
+    timeLimit_ = m * 60.0;
+        
     Listing& eventNodes = *info->findListing("events");
     if(eventNodes.isValid()){
         for(int j=0; j < eventNodes.size(); ++j){

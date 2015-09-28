@@ -100,12 +100,15 @@ public:
     int numGates() const { return gates.size(); }
     JVRCGateEvent* gate(int index) { return gates[index]; }
 
+    double timeLimit() const { return timeLimit_; }
+
     const Mapping* info() const { return info_; }
 
 private:
     std::string name_;
     std::vector<JVRCEventPtr> events;
     std::vector<JVRCGateEventPtr> gates;
+    double timeLimit_;
     MappingPtr info_;
 };
 

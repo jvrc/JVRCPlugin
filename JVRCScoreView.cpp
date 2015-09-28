@@ -9,6 +9,7 @@
 #include <cnoid/TimeBar>
 #include <cnoid/Button>
 #include <QBoxLayout>
+#include <QFormLayout>
 #include <QLabel>
 #include <QTableWidget>
 #include <QHeaderView>
@@ -33,8 +34,13 @@ QString toTimeString(double time)
     time -= hour * 60.0 * 60.0;
     int min = floor(time / 60.0);
     time -= min * 60.0;
+    /*
     return QString("%1:%2:%3")
         .arg(hour, 2, 10, QLatin1Char('0'))
+        .arg(min, 2, 10, QLatin1Char('0'))
+        .arg(time, 5, 'f', 2, QLatin1Char('0'));
+    */
+    return QString("%2:%3")
         .arg(min, 2, 10, QLatin1Char('0'))
         .arg(time, 5, 'f', 2, QLatin1Char('0'));
 }
@@ -82,9 +88,11 @@ public:
     int currentTaskIndex;
     TimeBar* timeBar;
     double startTime;
+    double timeLimit;
     
     QLabel scoreLabel;
     QLabel timeLabel;
+    QLabel restTimeLabel;
     QLabel positionLabel;
     QLabel taskLabel;
     
@@ -154,31 +162,42 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     QVBoxLayout* panelVBox = new QVBoxLayout();
     panelVBox->setContentsMargins(4, 4, 4, 0);
 
-    QHBoxLayout* hbox = new QHBoxLayout();
-    label = new QLabel("Score: ");
+    QHBoxLayout* hbox = new QHBoxLayout;
+    hbox->addStretch();
+    
+    QFormLayout* form = new QFormLayout;
+    form->setRowWrapPolicy(QFormLayout::DontWrapRows);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setFormAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    form->setLabelAlignment(Qt::AlignLeft);
+
+    label = new QLabel("Score:");
     label->setFont(font);
-    hbox->addWidget(label);
     scoreLabel.setFont(font);
     scoreLabel.setText("0");
-    hbox->addWidget(&scoreLabel);
-    hbox->addStretch();
-    panelVBox->addLayout(hbox);
+    scoreLabel.setAlignment(Qt::AlignHCenter);
+    form->addRow(label, &scoreLabel);
 
-    hbox = new QHBoxLayout();
-    label = new QLabel("Time: ");
+    label = new QLabel("Time:");
     label->setFont(font);
-    hbox->addWidget(label);
     timeLabel.setFont(font);
     timeLabel.setText("0:00.00");
-    hbox->addWidget(&timeLabel);
-    hbox->addStretch();
-    panelVBox->addLayout(hbox);
-
-    hbox = new QHBoxLayout();
-    label = new QLabel("Position: ");
-    hbox->addWidget(label);
+    timeLabel.setAlignment(Qt::AlignHCenter);
+    form->addRow(label, &timeLabel);
+    
+    label = new QLabel("Rest:");
+    label->setFont(font);
+    restTimeLabel.setFont(font);
+    restTimeLabel.setText("0:00.00");
+    restTimeLabel.setAlignment(Qt::AlignHCenter);
+    form->addRow(label, &restTimeLabel);
+    
+    label = new QLabel("Position:");
     positionLabel.setText("0.0, 0.0, 0.0");
-    hbox->addWidget(&positionLabel);
+    positionLabel.setAlignment(Qt::AlignHCenter);
+    form->addRow(label, &positionLabel);
+
+    hbox->addLayout(form);
     hbox->addStretch();
     panelVBox->addLayout(hbox);
 
@@ -213,9 +232,11 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     vbox->addLayout(panelVBox);
 
     recordTable.setSelectionBehavior(QAbstractItemView::SelectItems);
-    //recordTable.setSelectionBehavior(QAbstractItemView::SelectRows);
-    recordTable.setSelectionMode(QAbstractItemView::SingleSelection);
-    //recordTable.setSelectionMode(QAbstractItemView::ExtendedSelection);
+    recordTable.setSelectionMode(QAbstractItemView::ExtendedSelection);
+
+    recordTable.verticalHeader()->hide();
+    QHeaderView* header = recordTable.horizontalHeader();
+    header->setMinimumSectionSize(24);
 
     noColumn = 0;
     taskColumn = 1;
@@ -225,18 +246,26 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     manualTimeColumn = 5;
     numColumns = 6;
     recordTable.setColumnCount(numColumns);
-    recordTable.setHorizontalHeaderItem(noColumn, new QTableWidgetItem("No."));
-    recordTable.setHorizontalHeaderItem(taskColumn, new QTableWidgetItem("Task"));
-    recordTable.setHorizontalHeaderItem(eventColumn, new QTableWidgetItem("Event"));
-    recordTable.setHorizontalHeaderItem(autoTimeColumn, new QTableWidgetItem("Detected Time"));
-    recordTable.setHorizontalHeaderItem(adoptAutoTimeButtonColumn, new QTableWidgetItem(""));
-    recordTable.setHorizontalHeaderItem(manualTimeColumn, new QTableWidgetItem("Judged Time"));
 
-    recordTable.verticalHeader()->hide();
-    QHeaderView* hh = recordTable.horizontalHeader();
-    hh->setResizeMode(QHeaderView::ResizeToContents);
-    hh->setStretchLastSection(true);
+    recordTable.setHorizontalHeaderItem(noColumn, new QTableWidgetItem("No."));
+    header->setResizeMode(noColumn, QHeaderView::ResizeToContents);
+
+    recordTable.setHorizontalHeaderItem(taskColumn, new QTableWidgetItem("Task"));
+    header->setResizeMode(taskColumn, QHeaderView::Stretch);
+    recordTable.setColumnHidden(taskColumn, true);
     
+    recordTable.setHorizontalHeaderItem(eventColumn, new QTableWidgetItem("Event"));
+    header->setResizeMode(eventColumn, QHeaderView::Stretch);
+
+    recordTable.setHorizontalHeaderItem(autoTimeColumn, new QTableWidgetItem("Detected Time"));
+    header->setResizeMode(autoTimeColumn, QHeaderView::Stretch);
+
+    recordTable.setHorizontalHeaderItem(adoptAutoTimeButtonColumn, new QTableWidgetItem(""));
+    header->setResizeMode(adoptAutoTimeButtonColumn, QHeaderView::ResizeToContents);
+    
+    recordTable.setHorizontalHeaderItem(manualTimeColumn, new QTableWidgetItem("Judged Time"));
+    header->setResizeMode(manualTimeColumn, QHeaderView::Stretch);
+
     vbox->addWidget(&recordTable);
 
     hbox = new QHBoxLayout;
@@ -256,6 +285,9 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
 
     manager = JVRCManagerItem::instance();
 
+    startTime = 0.0;
+    timeLimit = 10.0 * 60.0;
+    
     robotItem = 0;
     manager->sigRobotDetected().connect(
         boost::bind(&JVRCScoreViewImpl::updateRobot, this));
@@ -307,6 +339,8 @@ double JVRCScoreViewImpl::currentTime() const
 bool JVRCScoreViewImpl::onTimeChanged(double time)
 {
     timeLabel.setText(toTimeString(currentTime()));
+    double rest = std::max(0.0, timeLimit - currentTime());
+    restTimeLabel.setText(toTimeString(rest));
     return false;
 }
 
@@ -360,6 +394,7 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
     } else {
         JVRCTask* task = manager->task(taskIndex);
         taskLabel.setText(QString("Task ") + task->name().c_str());
+        timeLimit = task->timeLimit();
         const int n = task->numEvents();
         for(int i=0; i < n; ++i){
             JVRCEvent* event = task->event(i);
@@ -438,7 +473,7 @@ void JVRCScoreViewImpl::onRecordUpdated()
             if(record->automaticRecordTime()){
                 recordTable.setItem(row, autoTimeColumn, new RecordItem(index, toTimeString(*record->automaticRecordTime())));
                 ToolButton* button = new ToolButton;
-                button->setText("->");
+                button->setText(">>");
                 button->sigClicked().connect(
                     boost::bind(&JVRCScoreViewImpl::onAdoptAutoTimeButtonClicked, this, index));
                 recordTable.setCellWidget(row, adoptAutoTimeButtonColumn, button);
