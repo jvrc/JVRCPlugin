@@ -40,22 +40,28 @@ QString toTimeString(double time)
 }
 
 
-class EventListWidget : public QTableWidget
+class RecordTableWidget : public QTableWidget
 {
 public:
-    EventListWidget(JVRCScoreViewImpl* impl) : scoreViewImpl(impl) { }
+    RecordTableWidget(JVRCScoreViewImpl* impl) : scoreViewImpl(impl) { }
     virtual void keyPressEvent(QKeyEvent* event);
 
     JVRCScoreViewImpl* scoreViewImpl;
 };
 
-class EventItem : public QTableWidgetItem
+class RecordItem : public QTableWidgetItem
 {
 public:
-    JVRCEventPtr record;
-    EventItem(const QString& text, JVRCEvent* record = 0) : QTableWidgetItem(text), record(record) {
-        setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-        //setFlags(Qt::ItemIsEnabled I Qt::temIsSelectable | Qt::ItemIsEditable);
+    int index;
+    RecordItem(int index, const QString& text, bool isSelectable = false)
+        : index(index),
+          QTableWidgetItem(text)
+   {
+       if(isSelectable){
+           setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+       } else {
+           setFlags(Qt::ItemIsEnabled);
+       }
         setTextAlignment(Qt::AlignCenter);
     }
 };
@@ -94,11 +100,12 @@ public:
     PushButton giveupButton;
     PushButton restartButton;
 
-    EventListWidget eventList;
+    RecordTableWidget recordTable;
     int noColumn;
     int taskColumn;
     int eventColumn;
     int autoTimeColumn;
+    int adoptAutoTimeButtonColumn;
     int manualTimeColumn;
     int numColumns;
 
@@ -112,8 +119,9 @@ public:
     void onSimulationStateChanged(bool isDoingSimulation);
     void onStartButtonClicked();
     void onEventButtonClicked(int index);
-    void onRecordsUpdated();
-    void removeSelectedEvents();
+    void onRecordUpdated();
+    void onAdoptAutoTimeButtonClicked(int recordIndex);
+    void clearSelectedManualTimes();
 };
 
 }
@@ -133,7 +141,7 @@ JVRCScoreView::JVRCScoreView()
 
 
 JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
-    : eventList(this)
+    : recordTable(this)
 {
     self->setDefaultLayoutArea(View::LEFT_BOTTOM);
     self->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
@@ -204,28 +212,32 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
 
     vbox->addLayout(panelVBox);
 
-    eventList.setSelectionBehavior(QAbstractItemView::SelectRows);
-    eventList.setSelectionMode(QAbstractItemView::ExtendedSelection);
+    recordTable.setSelectionBehavior(QAbstractItemView::SelectItems);
+    //recordTable.setSelectionBehavior(QAbstractItemView::SelectRows);
+    recordTable.setSelectionMode(QAbstractItemView::SingleSelection);
+    //recordTable.setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     noColumn = 0;
     taskColumn = 1;
     eventColumn = 2;
     autoTimeColumn = 3;
-    manualTimeColumn = 4;
-    numColumns = 5;
-    eventList.setColumnCount(numColumns);
-    eventList.setHorizontalHeaderItem(noColumn, new EventItem("No."));
-    eventList.setHorizontalHeaderItem(taskColumn, new EventItem("Task"));
-    eventList.setHorizontalHeaderItem(eventColumn, new EventItem("Event"));
-    eventList.setHorizontalHeaderItem(autoTimeColumn, new EventItem("Time (Auto)"));
-    eventList.setHorizontalHeaderItem(manualTimeColumn, new EventItem("Time (Manual)"));
+    adoptAutoTimeButtonColumn = 4;
+    manualTimeColumn = 5;
+    numColumns = 6;
+    recordTable.setColumnCount(numColumns);
+    recordTable.setHorizontalHeaderItem(noColumn, new QTableWidgetItem("No."));
+    recordTable.setHorizontalHeaderItem(taskColumn, new QTableWidgetItem("Task"));
+    recordTable.setHorizontalHeaderItem(eventColumn, new QTableWidgetItem("Event"));
+    recordTable.setHorizontalHeaderItem(autoTimeColumn, new QTableWidgetItem("Detected Time"));
+    recordTable.setHorizontalHeaderItem(adoptAutoTimeButtonColumn, new QTableWidgetItem(""));
+    recordTable.setHorizontalHeaderItem(manualTimeColumn, new QTableWidgetItem("Judged Time"));
 
-    eventList.verticalHeader()->hide();
-    QHeaderView* hh = eventList.horizontalHeader();
+    recordTable.verticalHeader()->hide();
+    QHeaderView* hh = recordTable.horizontalHeader();
     hh->setResizeMode(QHeaderView::ResizeToContents);
     hh->setStretchLastSection(true);
     
-    vbox->addWidget(&eventList);
+    vbox->addWidget(&recordTable);
 
     hbox = new QHBoxLayout;
     startButton.setText("Start");
@@ -253,8 +265,8 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
         boost::bind(&JVRCScoreViewImpl::updateTasks, this));
     updateTasks();
 
-    manager->sigRecordsUpdated().connect(
-        boost::bind(&JVRCScoreViewImpl::onRecordsUpdated, this));
+    manager->sigRecordUpdated().connect(
+        boost::bind(&JVRCScoreViewImpl::onRecordUpdated, this));
 
     timeBar = TimeBar::instance();
     timeBar->sigTimeChanged().connect(
@@ -399,7 +411,7 @@ void JVRCScoreViewImpl::onStartButtonClicked()
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
     JVRCTask* task = manager->task(currentTaskIndex);
-    manager->recordEvent(task->event(index), currentTime());
+    manager->addRecord(task->event(index), currentTime());
 
     if(currentTaskIndex + 1 < manager->numTasks()){
         setCurrentTask(currentTaskIndex + 1);
@@ -407,56 +419,77 @@ void JVRCScoreViewImpl::onEventButtonClicked(int index)
 }
 
 
-void JVRCScoreViewImpl::onRecordsUpdated()
+void JVRCScoreViewImpl::onRecordUpdated()
 {
     const int n = manager->numRecords();
-    eventList.setSortingEnabled(false);
-    eventList.setRowCount(0);
+    recordTable.setSortingEnabled(false);
+    recordTable.setRowCount(0);
 
     for(int index=0; index < n; ++index){
         JVRCEvent* record = manager->record(index);
         if(record->isTimeRecorded()){
-            eventList.insertRow(0);
+            recordTable.insertRow(0);
             int row = 0;
-            eventList.setItem(row, noColumn, new EventItem(QString("%1").arg(index, 2, 10, QLatin1Char('0')), record));
-            eventList.setItem(row, taskColumn, new EventItem(record->task()->name().c_str()));
-            eventList.setItem(row, eventColumn, new EventItem(record->label().c_str()));
+            QString no = QString("%1").arg(index, 2, 10, QLatin1Char('0'));
+            recordTable.setItem(row, noColumn, new RecordItem(index, no));
+            recordTable.setItem(row, taskColumn, new RecordItem(index, record->task()->name().c_str()));
+            recordTable.setItem(row, eventColumn, new RecordItem(index, record->label().c_str()));
             
             if(record->automaticRecordTime()){
-                eventList.setItem(row, autoTimeColumn, new EventItem(toTimeString(*record->automaticRecordTime())));
+                recordTable.setItem(row, autoTimeColumn, new RecordItem(index, toTimeString(*record->automaticRecordTime())));
+                ToolButton* button = new ToolButton;
+                button->setText("->");
+                button->sigClicked().connect(
+                    boost::bind(&JVRCScoreViewImpl::onAdoptAutoTimeButtonClicked, this, index));
+                recordTable.setCellWidget(row, adoptAutoTimeButtonColumn, button);
             }
             if(record->manualRecordTime()){
-                eventList.setItem(row, manualTimeColumn, new EventItem(toTimeString(*record->manualRecordTime())));
+                recordTable.setItem(row, manualTimeColumn, new RecordItem(index, toTimeString(*record->manualRecordTime()), true));
+            } else {
+                recordTable.setItem(row, manualTimeColumn, new RecordItem(index, ""));
             }
         }
     }
 
-    eventList.setSortingEnabled(true);
+    recordTable.setSortingEnabled(true);
 }
 
 
-void JVRCScoreViewImpl::removeSelectedEvents()
+void JVRCScoreViewImpl::onAdoptAutoTimeButtonClicked(int recordIndex)
+{
+    JVRCEvent* record = manager->record(recordIndex);
+    if(record && record->automaticRecordTime()){
+        record->setManualRecordTime(*record->automaticRecordTime());
+        manager->notifyRecordUpdate();
+    }
+}
+
+
+void JVRCScoreViewImpl::clearSelectedManualTimes()
 {
     set<int> rows;
-    QList<QTableWidgetItem*> selected = eventList.selectedItems();
+    QList<QTableWidgetItem*> selected = recordTable.selectedItems();
     for(int i=0; i < selected.size(); ++i){
-        QTableWidgetItem* item = selected[i];
-        rows.insert(item->row());
+        RecordItem* recordItem = dynamic_cast<RecordItem*>(selected[i]);
+        if(recordItem){
+            JVRCEvent* record = manager->record(recordItem->index);
+            if(record){
+                record->clearManualRecordTime();
+            }
+        }
     }
-    for(set<int>::reverse_iterator p = rows.rbegin(); p != rows.rend(); ++p){
-        eventList.removeRow(*p);
-    }
+    manager->notifyRecordUpdate();
 }
 
 
-void EventListWidget::keyPressEvent(QKeyEvent* event)
+void RecordTableWidget::keyPressEvent(QKeyEvent* event)
 {
     bool handled = false;
     
     switch(event->key()){
 
     case Qt::Key_Delete:
-        scoreViewImpl->removeSelectedEvents();
+        scoreViewImpl->clearSelectedManualTimes();
         handled = true;
         break;
 

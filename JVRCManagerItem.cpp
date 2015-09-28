@@ -57,7 +57,7 @@ public:
 
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
-    Signal<void()> sigRecordsUpdated;
+    Signal<void()> sigRecordUpdated;
     string recordFileBaseName;
     string recordFileName;
     
@@ -95,7 +95,7 @@ public:
     void setCurrentTask(JVRCTask* task);
     double currentTime() const;
     bool loadJVRCInfo(const std::string& filename);
-    void recordEvent(JVRCEventPtr event, double time, bool isManual);
+    void addRecord(JVRCEventPtr event, double time, bool isManual);
     JVRCEvent* findRecord(JVRCEvent* event);
     void resetRecordFileName();
     void saveRecords();    
@@ -174,7 +174,7 @@ void JVRCManagerItemImpl::initialize()
     robotMarkerLink = 0;
     spreaderItem = 0;
 
-    sigRecordsUpdated.connect(
+    sigRecordUpdated.connect(
         boost::bind(&JVRCManagerItemImpl::saveRecords, this));
 }
 
@@ -249,7 +249,7 @@ ItemPtr JVRCManagerItem::doDuplicate() const
 void JVRCManagerItem::clearRecords()
 {
     impl->records.clear();
-    impl->sigRecordsUpdated();
+    impl->sigRecordUpdated();
 }
 
 
@@ -265,13 +265,13 @@ JVRCEvent* JVRCManagerItem::record(int index)
 }
 
 
-void JVRCManagerItem::recordEvent(JVRCEvent* event, double time, bool isManual)
+void JVRCManagerItem::addRecord(JVRCEvent* event, double time, bool isManual)
 {
-    impl->recordEvent(event, time, isManual);
+    impl->addRecord(event, time, isManual);
 }
 
 
-void JVRCManagerItemImpl::recordEvent(JVRCEventPtr event, double time, bool isManual)
+void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isManual)
 {
     if(!startingTime){
         self->startTimer();
@@ -288,7 +288,7 @@ void JVRCManagerItemImpl::recordEvent(JVRCEventPtr event, double time, bool isMa
         record->setAutomaticRecordTime(time);
     }
 
-    sigRecordsUpdated();
+    sigRecordUpdated();
 }
 
 
@@ -311,13 +311,21 @@ void JVRCManagerItem::removeManualRecord(int index)
     if(!record->isTimeRecorded()){
         impl->records.erase(impl->records.begin() + index);
     }
-    sigRecordsUpdated();
+    sigRecordUpdated();
 }
 
 
-SignalProxy<void()> JVRCManagerItem::sigRecordsUpdated()
+SignalProxy<void()> JVRCManagerItem::sigRecordUpdated()
 {
-    return impl->sigRecordsUpdated;
+    return impl->sigRecordUpdated;
+}
+
+
+void JVRCManagerItem::notifyRecordUpdate()
+{
+    //! \todo remove the records that do not have any time stamps
+    
+    impl->sigRecordUpdated();
 }
 
 
@@ -725,7 +733,7 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
                 robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
                 if(isInFrontOfGate){
                     os << "Gate " << gate->index() << " has been passed." << endl;
-                    callLater(boost::bind(&JVRCManagerItemImpl::recordEvent, this, gate, currentTime(), false));
+                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, gate, currentTime(), false));
                     ++nextGateIndex;
                 }
             } else {
@@ -780,14 +788,14 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 
                     JVRCEvent* event = new JVRCEvent("action", currentTask);
                     event->setLabel(str(format("Spreader %1%") % hitIndex));
-                    callLater(boost::bind(&JVRCManagerItemImpl::recordEvent, this, event, currentTime(), false));
+                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, currentTime(), false));
                     
                     if(doorDestroyFlags.count() == doorDestroyFlags.size()){
                         doorRoot->T().translation().z() -= 2.0;
 
                         JVRCEvent* event = new JVRCEvent("action", currentTask);
                         event->setLabel("Door");
-                        callLater(boost::bind(&JVRCManagerItemImpl::recordEvent, this, event, currentTime(), false));
+                        callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, currentTime(), false));
                     }
                     hitCount = 0;
                 }

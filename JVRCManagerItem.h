@@ -47,9 +47,10 @@ public:
     void clearRecords();
     int numRecords() const;
     JVRCEvent* record(int index);
-    void recordEvent(JVRCEvent* event, double time, bool isManual = true);
+    void addRecord(JVRCEvent* event, double time, bool isManual = true);
     void removeManualRecord(int index);
-    SignalProxy<void()> sigRecordsUpdated();
+    SignalProxy<void()> sigRecordUpdated();
+    void notifyRecordUpdate();
     
     virtual bool initializeSimulation(SimulatorItem* simulatorItem);
     virtual void finalizeSimulation();
