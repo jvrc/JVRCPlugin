@@ -53,6 +53,7 @@ public:
 
     SimulatorItem* simulatorItem;
     ScopedConnectionSet simulatorConnections;
+    double offsetTime;
     optional<double> startingTime;
     optional<double> goalTime;
     string remainingTimeOutputFilename;
@@ -98,6 +99,7 @@ public:
     JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org);
     ~JVRCManagerItemImpl();
     void initialize();
+    bool loadRecords(const std::string& filename);
     void setCurrentTask(JVRCTask* task);
     double currentTime() const;
     double remainingTime() const;
@@ -184,6 +186,7 @@ void JVRCManagerItemImpl::initialize()
     remainingTimeOutputTimer.sigTimeout().connect(
         boost::bind(&JVRCManagerItemImpl::outputRemainingTime, this));
 
+    offsetTime = 0.0;
     simulatorItem = 0;
     score = 0;
     worldItem = 0;
@@ -264,6 +267,61 @@ void JVRCManagerItem::clearRecords()
 {
     impl->records.clear();
     notifyRecordUpdate();
+}
+
+
+bool JVRCManagerItem::loadRecords(const std::string& filename)
+{
+    return impl->loadRecords(filename);
+}
+
+
+bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
+{
+    self->clearRecords();
+    
+    YAMLReader reader;
+    MappingPtr info = reader.loadDocument(filename)->toMapping();
+
+    offsetTime = info->get("finalTime", 0.0);
+
+    const Listing& recordNodes = *info->findListing("records");
+    if(recordNodes.isValid()){
+        for(int i=0; i < recordNodes.size(); ++i){
+            const Mapping& node = *recordNodes[i].toMapping();
+            JVRCEvent* record = 0;
+            string label = node.read<string>("label");
+            string taskName = node.read<string>("task");
+            JVRCTask* task = self->findTask(taskName);
+            if(!task){
+                MessageView* mv = MessageView::instance();
+                mv->putln(MessageView::WARNING,
+                          format("Task \"%1%\" for record \"%2%\" is not found.")
+                          % taskName % label);
+            } else {
+                string type = node.read<string>("type");
+                if(type == "gate"){
+                    JVRCGateEvent* gate = new JVRCGateEvent(task);
+                    gate->setIndex(node.read<int>("gateIndex"));
+                    record = gate;
+                } else {
+                    record = new JVRCEvent(type, task);
+                }
+                record->setLabel(label);
+                double time;
+                if(node.read("autoTime", time)){
+                    record->setAutomaticRecordTime(time);
+                }
+                if(node.read("manualTime", time)){
+                    record->setManualRecordTime(time);
+                }
+                records.push_back(record);
+            }
+            notifyRecordUpdate();
+        }
+    }
+    
+    return true;
 }
 
 
@@ -584,9 +642,9 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
 double JVRCManagerItemImpl::currentTime() const
 {
     if(startingTime && simulatorItem){
-        return simulatorItem->simulationTime() - *startingTime;
+        return simulatorItem->simulationTime() - *startingTime + offsetTime;
     } else {
-        return 0.0;
+        return offsetTime;
     }
 }
 

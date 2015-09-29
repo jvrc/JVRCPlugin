@@ -49,6 +49,7 @@ public:
     SignalProxy<void(bool isDoingSimulation)> sigSimulationStateChanged();
 
     void clearRecords();
+    bool loadRecords(const std::string& filename);
     int numRecords() const;
     JVRCEvent* record(int index);
     void addRecord(JVRCEvent* event, double time, bool isManual = true);

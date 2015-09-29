@@ -92,15 +92,19 @@ void JVRCEvent::write(YAMLWriter& writer)
 }
 
 
+JVRCGateEvent::JVRCGateEvent(JVRCTask* task)
+    : JVRCEvent("gate", task)
+{
+    initialize();
+}
+
+
 JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
     : JVRCEvent("gate", task, info)
 {
-    index_ = 0;
+    initialize();
 
     isLabelSpecified = info->find("label")->isValid();
-    
-    locations[0].setZero();
-    locations[1].setZero();
 
     const Listing& location = *info->findListing("location");
     if(location.isValid()){
@@ -114,6 +118,15 @@ JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
             }
         }
     }
+}
+
+
+void JVRCGateEvent::initialize()
+{
+    index_ = 0;
+    isLabelSpecified = true;
+    locations[0].setZero();
+    locations[1].setZero();
 }
 
 

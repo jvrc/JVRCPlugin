@@ -9,12 +9,14 @@
 #include <cnoid/TimeBar>
 #include <cnoid/Button>
 #include <cnoid/MessageView>
+#include <cnoid/MainWindow>
 #include <QBoxLayout>
 #include <QFormLayout>
 #include <QLabel>
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QKeyEvent>
+#include <QFileDialog>
 #include <boost/bind.hpp>
 #include <set>
 #include <cmath>
@@ -105,7 +107,7 @@ public:
     QSpacerItem* buttonVBoxSpacer;
     vector<PushButton*> buttons;
     PushButton startButton;
-    PushButton restartButton;
+    PushButton loadButton;
     PushButton abortButton;
 
     RecordTableWidget recordTable;
@@ -131,8 +133,30 @@ public:
     void onRecordUpdated();
     void onAdoptAutoTimeButtonClicked(int recordIndex);
     void clearSelectedManualTimes();
+    void onLoadButtonClicked();
 };
 
+}
+
+
+void RecordTableWidget::keyPressEvent(QKeyEvent* event)
+{
+    bool handled = false;
+    
+    switch(event->key()){
+
+    case Qt::Key_Delete:
+        scoreViewImpl->clearSelectedManualTimes();
+        handled = true;
+        break;
+
+    defaut:
+        break;
+    }
+
+    if(!handled){
+        QTableWidget::keyPressEvent(event);
+    }
 }
 
 
@@ -280,8 +304,10 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     startButton.sigClicked().connect(
         boost::bind(&JVRCScoreViewImpl::onStartButtonClicked, this));
     hbox->addWidget(&startButton);
-    restartButton.setText("Restart");
-    hbox->addWidget(&restartButton);
+    loadButton.setText("Load");
+    loadButton.sigClicked().connect(
+        boost::bind(&JVRCScoreViewImpl::onLoadButtonClicked, this));
+    hbox->addWidget(&loadButton);
     abortButton.setText("Abort");
     abortButton.sigClicked().connect(
         boost::bind(&JVRCManagerItem::requestToAbort, manager));
@@ -438,7 +464,7 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 void JVRCScoreViewImpl::onSimulationStateChanged(bool isDoingSimulation)
 {
     startButton.setEnabled(isDoingSimulation);
-    restartButton.setEnabled(!isDoingSimulation);
+    loadButton.setEnabled(!isDoingSimulation);
     abortButton.setEnabled(isDoingSimulation);
 }
 
@@ -536,22 +562,15 @@ void JVRCScoreViewImpl::clearSelectedManualTimes()
 }
 
 
-void RecordTableWidget::keyPressEvent(QKeyEvent* event)
+void JVRCScoreViewImpl::onLoadButtonClicked()
 {
-    bool handled = false;
-    
-    switch(event->key()){
+    QString filename =
+        QFileDialog::getOpenFileName(
+            MainWindow::instance(),
+            _("Load a JVRC event record file"),
+            QDir::currentPath(), _("JVRC event record files (*.yaml)"));
 
-    case Qt::Key_Delete:
-        scoreViewImpl->clearSelectedManualTimes();
-        handled = true;
-        break;
-
-    defaut:
-        break;
-    }
-
-    if(!handled){
-        QTableWidget::keyPressEvent(event);
+    if(!filename.isNull()){
+        manager->loadRecords(filename.toStdString());
     }
 }

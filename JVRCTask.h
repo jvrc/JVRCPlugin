@@ -69,6 +69,7 @@ class JVRCGateEvent : public JVRCEvent
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
+    JVRCGateEvent(JVRCTask* task);
     JVRCGateEvent(JVRCTask* task, Mapping* info);
     JVRCGateEvent(const JVRCGateEvent& org);
     virtual JVRCEvent* clone();
@@ -85,6 +86,8 @@ private:
     int index_;
     bool isLabelSpecified;
     Vector3 locations[2];
+
+    void initialize();
 };
 
 typedef ref_ptr<JVRCGateEvent> JVRCGateEventPtr;
