@@ -40,7 +40,7 @@ public:
     JVRCTask* currentTask();
     SignalProxy<void()> sigCurrentTaskChanged();
 
-    boost::optional<double> startTimer();
+    boost::optional<double> startTimeCount();
     boost::optional<double> startingTime() const;
     boost::optional<double> goalTime() const;
     

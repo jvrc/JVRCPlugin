@@ -446,7 +446,7 @@ void JVRCScoreViewImpl::onSimulationStateChanged(bool isDoingSimulation)
 
 void JVRCScoreViewImpl::onStartButtonClicked()
 {
-    if(manager->startTimer()){
+    if(manager->startTimeCount()){
         startButton.setEnabled(false);
     }
 }

@@ -17,6 +17,7 @@
 #include <cnoid/FileUtil>
 #include <cnoid/YAMLReader>
 #include <cnoid/ConnectionSet>
+#include <cnoid/Timer>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
 
@@ -54,7 +55,9 @@ public:
     ScopedConnectionSet simulatorConnections;
     optional<double> startingTime;
     optional<double> goalTime;
-    string remainingTimeOutputFile;
+    string remainingTimeOutputFilename;
+    std::ofstream remainingTimeOutputStream;
+    Timer remainingTimeOutputTimer;
     Signal<void(bool isDoingSimulation)> sigSimulationStateChanged;
 
     typedef std::vector<JVRCEventPtr> RecordList;
@@ -97,6 +100,10 @@ public:
     void initialize();
     void setCurrentTask(JVRCTask* task);
     double currentTime() const;
+    double remainingTime() const;
+    void startRemainingTimeOutput();
+    void outputRemainingTime();
+    void stopRemaingTimeOutput();
     bool loadJVRCInfo(const std::string& filename);
     void addRecord(JVRCEventPtr event, double time, bool isManual);
     JVRCEvent* findRecord(JVRCEvent* event);
@@ -171,7 +178,11 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 
 void JVRCManagerItemImpl::initialize()
 {
-    remainingTimeOutputFile = "jvrc-remaining-time.txt";
+    remainingTimeOutputFilename = "jvrc-remaining-time.txt";
+    remainingTimeOutputTimer.setInterval(500);
+    remainingTimeOutputTimer.sigTimeout().connect(
+        boost::bind(&JVRCManagerItemImpl::outputRemainingTime, this));
+
     simulatorItem = 0;
     score = 0;
     worldItem = 0;
@@ -279,7 +290,7 @@ void JVRCManagerItem::addRecord(JVRCEvent* event, double time, bool isManual)
 void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isManual)
 {
     if(!startingTime){
-        self->startTimer();
+        self->startTimeCount();
     }
     
     JVRCEvent* record = findRecord(event);
@@ -567,7 +578,26 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
 }
 
 
-boost::optional<double> JVRCManagerItem::startTimer()
+double JVRCManagerItemImpl::currentTime() const
+{
+    if(startingTime && simulatorItem){
+        return simulatorItem->simulationTime() - *startingTime;
+    } else {
+        return 0.0;
+    }
+}
+
+
+double JVRCManagerItemImpl::remainingTime() const
+{
+    if(currentTask){
+        return std::max(0.0, currentTask->timeLimit() - currentTime());
+    }
+    return 0.0;
+}
+
+
+boost::optional<double> JVRCManagerItem::startTimeCount()
 {
     if(impl->simulatorItem){
         impl->startingTime = impl->simulatorItem->simulationTime();
@@ -588,19 +618,37 @@ boost::optional<double> JVRCManagerItem::goalTime() const
 }
 
 
-SignalProxy<void(bool isDoingSimulation)> JVRCManagerItem::sigSimulationStateChanged()
+void JVRCManagerItemImpl::startRemainingTimeOutput()
 {
-    return impl->sigSimulationStateChanged;
+    remainingTimeOutputStream.open(remainingTimeOutputFilename.c_str());
+    remainingTimeOutputTimer.start();
 }
 
 
-double JVRCManagerItemImpl::currentTime() const
+void JVRCManagerItemImpl::outputRemainingTime()
 {
-    if(startingTime && simulatorItem){
-        return simulatorItem->simulationTime() - *startingTime;
-    } else {
-        return 0.0;
-    }
+    remainingTimeOutputStream.seekp(0);
+    double time = remainingTime();
+    int hour = floor(time / 60.0 / 60.0);
+    time -= hour * 60.0 * 60.0;
+    int min = floor(time / 60.0);
+    time -= min * 60.0;
+
+    remainingTimeOutputStream << (format("%1$02d:%2$02d") % min % time) << endl;
+    remainingTimeOutputStream.flush();
+}
+
+
+void JVRCManagerItemImpl::stopRemaingTimeOutput()
+{
+    remainingTimeOutputTimer.stop();
+    remainingTimeOutputStream.close();
+}
+
+
+SignalProxy<void(bool isDoingSimulation)> JVRCManagerItem::sigSimulationStateChanged()
+{
+    return impl->sigSimulationStateChanged;
 }
 
 
@@ -685,6 +733,8 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     }
 
     resetRecordFileName();
+
+    startRemainingTimeOutput();
 
     return true;
 }
@@ -897,6 +947,7 @@ void JVRCManagerItem::finalizeSimulation()
 
 void JVRCManagerItemImpl::finalizeSimulation()
 {
+    stopRemaingTimeOutput();
     sigSimulationStateChanged(false);
     simulatorConnections.disconnect();
     simulatorItem = 0;
@@ -914,7 +965,7 @@ void JVRCManagerItemImpl::doPutProperties(PutPropertyFunction& putProperty)
 {
     putProperty("Record file", recordFileBaseName,
                 boost::bind(&JVRCManagerItemImpl::onRecordFilePropertyChanged, this, _1));
-    putProperty("Remaining time output file", remainingTimeOutputFile, changeProperty(remainingTimeOutputFile));
+    putProperty("Remaining time output file", remainingTimeOutputFilename, changeProperty(remainingTimeOutputFilename));
 }
 
 
@@ -936,7 +987,7 @@ bool JVRCManagerItemImpl::store(Archive& archive)
 {
     archive.writeRelocatablePath("info", self->filePath());    
     archive.write("recordFile", recordFileBaseName);
-    archive.write("remainingTimeOutputFile", remainingTimeOutputFile);
+    archive.write("remainingTimeOutputFilename", remainingTimeOutputFilename);
     return true;
 }
 
@@ -952,7 +1003,7 @@ bool JVRCManagerItemImpl::restore(const Archive& archive)
 {
     string filename;
     archive.read("recordFile", recordFileBaseName);
-    archive.read("remainingTimeOutputFile", remainingTimeOutputFile);
+    archive.read("remainingTimeOutputFilename", remainingTimeOutputFilename);
     if(archive.readRelocatablePath("info", filename)){
         return self->load(filename);
     }
