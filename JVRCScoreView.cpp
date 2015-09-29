@@ -118,7 +118,7 @@ public:
     int pointColumn;
     int numColumns;
 
-    double currentTime() const;
+    double currentGameTime() const;
     bool onTimeChanged(double time);
     void updateRobot();
     void onRobotPositionChanged();
@@ -327,24 +327,28 @@ JVRCScoreViewImpl::~JVRCScoreViewImpl()
 }
 
 
-double JVRCScoreViewImpl::currentTime() const
+double JVRCScoreViewImpl::currentGameTime() const
 {
-    double t = 0.0;
-    optional<double> s = manager->startingTime();
-    if(s){
-        t = (*s > 0.0) ? timeBar->time() - *s : 0.0;
-        if(t < 0.0){
-            t = 0.0;
-        }
+    optional<double> goalTime = manager->goalTime();
+    if(goalTime){
+        return *goalTime;
     }
-    return t;
+    optional<double> startingTime = manager->startingTime();
+    if(startingTime){
+        double time = (*startingTime > 0.0) ? timeBar->time() - *startingTime : 0.0;
+        if(time < 0.0){
+            time = 0.0;
+        }
+        return time;
+    }
+    return 0.0;
 }    
     
 
 bool JVRCScoreViewImpl::onTimeChanged(double time)
 {
-    timeLabel.setText(toTimeString(currentTime()));
-    double rest = std::max(0.0, timeLimit - currentTime());
+    timeLabel.setText(toTimeString(currentGameTime()));
+    double rest = std::max(0.0, timeLimit - currentGameTime());
     restTimeLabel.setText(toTimeString(rest));
     return false;
 }
@@ -451,7 +455,7 @@ void JVRCScoreViewImpl::onStartButtonClicked()
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
     JVRCTask* task = manager->task(currentTaskIndex);
-    manager->addRecord(task->event(index), currentTime());
+    manager->addRecord(task->event(index), currentGameTime());
 
     if(currentTaskIndex + 1 < manager->numTasks()){
         setCurrentTask(currentTaskIndex + 1);

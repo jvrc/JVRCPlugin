@@ -42,6 +42,8 @@ public:
 
     boost::optional<double> startTimer();
     boost::optional<double> startingTime() const;
+    boost::optional<double> goalTime() const;
+    
     SignalProxy<void(bool isDoingSimulation)> sigSimulationStateChanged();
 
     void clearRecords();

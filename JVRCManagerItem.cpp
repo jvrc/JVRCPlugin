@@ -53,6 +53,7 @@ public:
     SimulatorItem* simulatorItem;
     ScopedConnectionSet simulatorConnections;
     optional<double> startingTime;
+    optional<double> goalTime;
     Signal<void(bool isDoingSimulation)> sigSimulationStateChanged;
 
     typedef std::vector<JVRCEventPtr> RecordList;
@@ -169,7 +170,6 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 
 void JVRCManagerItemImpl::initialize()
 {
-    startingTime = boost::none;
     simulatorItem = 0;
     score = 0;
     worldItem = 0;
@@ -334,9 +334,15 @@ void JVRCManagerItemImpl::notifyRecordUpdate()
 {
     //! \todo remove the records that do not have any time stamps
 
+    goalTime = boost::none;
     score = 0;
     for(size_t i=0; i < records.size(); ++i){
-        score += records[i]->point();
+        JVRCEvent* record = records[i];
+        JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(record);
+        if(gate && gate->isGoal() && gate->manualRecordTime()){
+            goalTime = *gate->manualRecordTime();
+        }
+        score += record->point();
     }
     sigRecordUpdated();
 }
@@ -574,6 +580,12 @@ boost::optional<double> JVRCManagerItem::startingTime() const
 }
 
 
+boost::optional<double> JVRCManagerItem::goalTime() const
+{
+    return impl->goalTime;
+}
+
+
 SignalProxy<void(bool isDoingSimulation)> JVRCManagerItem::sigSimulationStateChanged()
 {
     return impl->sigSimulationStateChanged;
@@ -629,6 +641,7 @@ bool JVRCManagerItem::initializeSimulation(SimulatorItem* simulatorItem)
 bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 {
     startingTime = boost::none;
+    goalTime = boost::none;
     
     this->simulatorItem = simulatorItem;
 
