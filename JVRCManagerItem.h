@@ -9,6 +9,7 @@
 #include "JVRCTask.h"
 #include <cnoid/SubSimulatorItem>
 #include <cnoid/BodyItem>
+#include <QString>
 #include "exportdecl.h"
 
 namespace cnoid {
@@ -43,6 +44,10 @@ public:
     boost::optional<double> startTimeCount();
     boost::optional<double> startingTime() const;
     boost::optional<double> goalTime() const;
+    double elapsedTime(double simulationTime) const;
+    double remainingTime(double elapsedTime) const;
+    static std::string toTimeString(double time);
+    static QString toTimeQString(double time);
 
     void requestToAbort();
     

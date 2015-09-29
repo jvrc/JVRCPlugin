@@ -31,24 +31,6 @@ namespace {
 
 bool TRACE_FUNCTIONS = false;
 
-QString toTimeString(double time)
-{
-    int hour = floor(time / 60.0 / 60.0);
-    time -= hour * 60.0 * 60.0;
-    int min = floor(time / 60.0);
-    time -= min * 60.0;
-    /*
-    return QString("%1:%2:%3")
-        .arg(hour, 2, 10, QLatin1Char('0'))
-        .arg(min, 2, 10, QLatin1Char('0'))
-        .arg(time, 5, 'f', 2, QLatin1Char('0'));
-    */
-    return QString("%2:%3")
-        .arg(min, 2, 10, QLatin1Char('0'))
-        .arg(time, 5, 'f', 2, QLatin1Char('0'));
-}
-
-
 class RecordTableWidget : public QTableWidget
 {
 public:
@@ -120,7 +102,6 @@ public:
     int pointColumn;
     int numColumns;
 
-    double currentGameTime() const;
     bool onTimeChanged(double time);
     void updateRobot();
     void onRobotPositionChanged();
@@ -353,29 +334,11 @@ JVRCScoreViewImpl::~JVRCScoreViewImpl()
 }
 
 
-double JVRCScoreViewImpl::currentGameTime() const
-{
-    optional<double> goalTime = manager->goalTime();
-    if(goalTime){
-        return *goalTime;
-    }
-    optional<double> startingTime = manager->startingTime();
-    if(startingTime){
-        double time = (*startingTime > 0.0) ? timeBar->time() - *startingTime : 0.0;
-        if(time < 0.0){
-            time = 0.0;
-        }
-        return time;
-    }
-    return 0.0;
-}    
-    
-
 bool JVRCScoreViewImpl::onTimeChanged(double time)
 {
-    timeLabel.setText(toTimeString(currentGameTime()));
-    double remainingTime = std::max(0.0, timeLimit - currentGameTime());
-    remainingTimeLabel.setText(toTimeString(remainingTime));
+    double elapsedTime = manager->elapsedTime(time);
+    timeLabel.setText(JVRCManagerItem::toTimeQString(elapsedTime));
+    remainingTimeLabel.setText(JVRCManagerItem::toTimeQString(manager->remainingTime(elapsedTime)));
     return false;
 }
 
@@ -480,7 +443,8 @@ void JVRCScoreViewImpl::onStartButtonClicked()
 void JVRCScoreViewImpl::onEventButtonClicked(int index)
 {
     JVRCTask* task = manager->task(currentTaskIndex);
-    manager->addRecord(task->event(index), currentGameTime());
+    double elapsedTime = manager->elapsedTime(timeBar->time());
+    manager->addRecord(task->event(index), elapsedTime);
 
     if(currentTaskIndex + 1 < manager->numTasks()){
         setCurrentTask(currentTaskIndex + 1);
@@ -507,7 +471,8 @@ void JVRCScoreViewImpl::onRecordUpdated()
             recordTable.setItem(row, eventColumn, new RecordItem(index, record->label().c_str()));
             
             if(record->automaticRecordTime()){
-                recordTable.setItem(row, autoTimeColumn, new RecordItem(index, toTimeString(*record->automaticRecordTime())));
+                QString timestr = JVRCManagerItem::toTimeQString(*record->automaticRecordTime());
+                recordTable.setItem(row, autoTimeColumn, new RecordItem(index, timestr));
                 ToolButton* button = new ToolButton;
                 button->setText(">>");
                 button->sigClicked().connect(
@@ -516,7 +481,8 @@ void JVRCScoreViewImpl::onRecordUpdated()
             }
             RecordItem* pointItem = 0;
             if(record->manualRecordTime()){
-                recordTable.setItem(row, manualTimeColumn, new RecordItem(index, toTimeString(*record->manualRecordTime()), true));
+                QString timestr = JVRCManagerItem::toTimeQString(*record->manualRecordTime());
+                recordTable.setItem(row, manualTimeColumn, new RecordItem(index, timestr, true));
                 if(record->point() > 0){
                     pointItem = new RecordItem(index, QString("%1").arg(record->point()));
                 }

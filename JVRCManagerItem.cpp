@@ -101,7 +101,7 @@ public:
     void initialize();
     bool loadRecords(const std::string& filename);
     void setCurrentTask(JVRCTask* task);
-    double currentTime() const;
+    double elapsedTime() const;
     double remainingTime() const;
     void startRemainingTimeOutput();
     void outputRemainingTime();
@@ -283,7 +283,7 @@ bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
     YAMLReader reader;
     MappingPtr info = reader.loadDocument(filename)->toMapping();
 
-    offsetTime = info->get("finalTime", 0.0);
+    offsetTime = info->get("elapsedTime", 0.0);
 
     const Listing& recordNodes = *info->findListing("records");
     if(recordNodes.isValid()){
@@ -463,8 +463,7 @@ void JVRCManagerItemImpl::saveRecords()
         writer.endListing();
     }
 
-    double finalTime = currentTime();
-    writer.putKeyValue("finalTime", finalTime);
+    writer.putKeyValue("elapsedTime", elapsedTime());
 
     writer.endMapping();
 }
@@ -639,25 +638,6 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
 }
 
 
-double JVRCManagerItemImpl::currentTime() const
-{
-    if(startingTime && simulatorItem){
-        return simulatorItem->simulationTime() - *startingTime + offsetTime;
-    } else {
-        return offsetTime;
-    }
-}
-
-
-double JVRCManagerItemImpl::remainingTime() const
-{
-    if(currentTask){
-        return std::max(0.0, currentTask->timeLimit() - currentTime());
-    }
-    return 0.0;
-}
-
-
 boost::optional<double> JVRCManagerItem::startTimeCount()
 {
     if(impl->simulatorItem){
@@ -679,6 +659,64 @@ boost::optional<double> JVRCManagerItem::goalTime() const
 }
 
 
+double JVRCManagerItem::elapsedTime(double simulationTime) const
+{
+    if(impl->startingTime){
+        return std::max(0.0, simulationTime - *impl->startingTime + impl->offsetTime);
+    } else {
+        return impl->offsetTime;
+    }
+}
+
+
+double JVRCManagerItemImpl::elapsedTime() const
+{
+    if(simulatorItem){
+        return self->elapsedTime(simulatorItem->simulationTime());
+    } else {
+        return self->elapsedTime(0.0);
+    }
+}
+
+
+double JVRCManagerItem::remainingTime(double elapsedTime) const
+{
+    if(impl->currentTask){
+        return std::max(0.0, impl->currentTask->timeLimit() - elapsedTime);
+    } else {
+        return std::max(0.0, 10.0 * 60.0 - elapsedTime);
+    }
+}
+    
+
+double JVRCManagerItemImpl::remainingTime() const
+{
+    return self->remainingTime(elapsedTime());
+}
+
+
+std::string JVRCManagerItem::toTimeString(double time)
+{
+    int hour = floor(time / 60.0 / 60.0);
+    time -= hour * 60.0 * 60.0;
+    int min = floor(time / 60.0);
+    time -= min * 60.0;
+    return str(format("%1$02d:%2$02.2f") % min % time);
+}
+
+
+QString JVRCManagerItem::toTimeQString(double time)
+{
+    int hour = floor(time / 60.0 / 60.0);
+    time -= hour * 60.0 * 60.0;
+    int min = floor(time / 60.0);
+    time -= min * 60.0;
+    return QString("%2:%3")
+        .arg(min, 2, 10, QLatin1Char('0'))
+        .arg(time, 5, 'f', 2, QLatin1Char('0'));
+}
+
+
 void JVRCManagerItemImpl::startRemainingTimeOutput()
 {
     remainingTimeOutputStream.open(remainingTimeOutputFilename.c_str());
@@ -689,14 +727,7 @@ void JVRCManagerItemImpl::startRemainingTimeOutput()
 void JVRCManagerItemImpl::outputRemainingTime()
 {
     remainingTimeOutputStream.seekp(0);
-    double time = remainingTime();
-    int hour = floor(time / 60.0 / 60.0);
-    time -= hour * 60.0 * 60.0;
-    int min = floor(time / 60.0);
-    time -= min * 60.0;
-
-    remainingTimeOutputStream << (format("%1$02d:%2$02d") % min % time) << endl;
-    remainingTimeOutputStream.flush();
+    remainingTimeOutputStream << JVRCManagerItem::toTimeString(remainingTime()) << endl;
 }
 
 
@@ -900,7 +931,7 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
                 robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
                 if(isInFrontOfGate){
                     os << "Gate " << gate->index() << " has been passed." << endl;
-                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, gate, currentTime(), false));
+                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, gate, elapsedTime(), false));
                     ++nextGateIndex;
                 }
             } else {
@@ -955,14 +986,14 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 
                     JVRCEvent* event = new JVRCEvent("action", currentTask);
                     event->setLabel(str(format("Spreader %1%") % hitIndex));
-                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, currentTime(), false));
+                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
                     
                     if(doorDestroyFlags.count() == doorDestroyFlags.size()){
                         doorRoot->T().translation().z() -= 2.0;
 
                         JVRCEvent* event = new JVRCEvent("action", currentTask);
                         event->setLabel("Door");
-                        callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, currentTime(), false));
+                        callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
                     }
                     hitCount = 0;
                 }
