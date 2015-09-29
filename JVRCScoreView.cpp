@@ -8,6 +8,7 @@
 #include <cnoid/ViewManager>
 #include <cnoid/TimeBar>
 #include <cnoid/Button>
+#include <cnoid/MessageView>
 #include <QBoxLayout>
 #include <QFormLayout>
 #include <QLabel>
@@ -96,7 +97,6 @@ public:
     QLabel positionLabel;
     QLabel taskLabel;
     
-    PushButton startButton;
     PushButton prevButton;
     PushButton nextButton;
     QVBoxLayout buttonVBox;
@@ -104,9 +104,9 @@ public:
     QHBoxLayout buttonHBox2;
     QSpacerItem* buttonVBoxSpacer;
     vector<PushButton*> buttons;
-    PushButton resetButton;
-    PushButton giveupButton;
+    PushButton startButton;
     PushButton restartButton;
+    PushButton abortButton;
 
     RecordTableWidget recordTable;
     int noColumn;
@@ -152,6 +152,8 @@ JVRCScoreView::JVRCScoreView()
 JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     : recordTable(this)
 {
+    manager = JVRCManagerItem::instance();
+
     self->setDefaultLayoutArea(View::LEFT_BOTTOM);
     self->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     
@@ -278,17 +280,15 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     startButton.sigClicked().connect(
         boost::bind(&JVRCScoreViewImpl::onStartButtonClicked, this));
     hbox->addWidget(&startButton);
-    resetButton.setText("Reset");
-    hbox->addWidget(&resetButton);
     restartButton.setText("Restart");
     hbox->addWidget(&restartButton);
-    giveupButton.setText("Give Up");
-    hbox->addWidget(&giveupButton);
+    abortButton.setText("Abort");
+    abortButton.sigClicked().connect(
+        boost::bind(&JVRCManagerItem::requestToAbort, manager));
+    hbox->addWidget(&abortButton);
     vbox->addLayout(hbox);
     
     self->setLayout(vbox);
-
-    manager = JVRCManagerItem::instance();
 
     startTime = 0.0;
     timeLimit = 10.0 * 60.0;
@@ -438,9 +438,8 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 void JVRCScoreViewImpl::onSimulationStateChanged(bool isDoingSimulation)
 {
     startButton.setEnabled(isDoingSimulation);
-    resetButton.setEnabled(isDoingSimulation);
     restartButton.setEnabled(!isDoingSimulation);
-    giveupButton.setEnabled(isDoingSimulation);
+    abortButton.setEnabled(isDoingSimulation);
 }
 
 

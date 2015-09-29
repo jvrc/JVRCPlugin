@@ -104,6 +104,7 @@ public:
     void startRemainingTimeOutput();
     void outputRemainingTime();
     void stopRemaingTimeOutput();
+    void requestToAbort();
     bool loadJVRCInfo(const std::string& filename);
     void addRecord(JVRCEventPtr event, double time, bool isManual);
     JVRCEvent* findRecord(JVRCEvent* event);
@@ -189,9 +190,6 @@ void JVRCManagerItemImpl::initialize()
     robotItem = 0;
     robotMarkerLink = 0;
     spreaderItem = 0;
-
-    sigRecordUpdated.connect(
-        boost::bind(&JVRCManagerItemImpl::saveRecords, this));
 }
 
 
@@ -265,7 +263,7 @@ ItemPtr JVRCManagerItem::doDuplicate() const
 void JVRCManagerItem::clearRecords()
 {
     impl->records.clear();
-    impl->sigRecordUpdated();
+    notifyRecordUpdate();
 }
 
 
@@ -357,6 +355,9 @@ void JVRCManagerItemImpl::notifyRecordUpdate()
         }
         score += record->point();
     }
+
+    saveRecords();
+    
     sigRecordUpdated();
 }
 
@@ -391,21 +392,23 @@ void JVRCManagerItemImpl::saveRecords()
     writer.setKeyOrderPreservationMode(true);
     writer.putComment("JVRC Score Record File\n");
 
-    if(!records.empty()){
+    writer.startMapping();
 
-        writer.startMapping();
+    if(!records.empty()){
         writer.putKey("records");
         writer.startListing();
-
         for(size_t i=0; i < records.size(); ++i){
             writer.startMapping();
             records[i]->write(writer);
             writer.endMapping();
         }
-
         writer.endListing();
-        writer.endMapping();
     }
+
+    double finalTime = currentTime();
+    writer.putKeyValue("finalTime", finalTime);
+
+    writer.endMapping();
 }
         
 
@@ -643,6 +646,28 @@ void JVRCManagerItemImpl::stopRemaingTimeOutput()
 {
     remainingTimeOutputTimer.stop();
     remainingTimeOutputStream.close();
+}
+
+
+void JVRCManagerItem::requestToAbort()
+{
+    impl->requestToAbort();
+}
+
+
+void JVRCManagerItemImpl::requestToAbort()
+{
+    if(simulatorItem){
+        simulatorItem->pauseSimulation();
+        if(showConfirmDialog("Abort", "Do you really want to abort the task?")){
+            saveRecords();
+            simulatorItem->stopSimulation();
+            showMessageBox(format("The time of aborting has been written to \"%1%\".")
+                           % recordFileName);
+        } else {
+            simulatorItem->restartSimulation();
+        }
+    }
 }
 
 

@@ -43,6 +43,8 @@ public:
     boost::optional<double> startTimeCount();
     boost::optional<double> startingTime() const;
     boost::optional<double> goalTime() const;
+
+    void requestToAbort();
     
     SignalProxy<void(bool isDoingSimulation)> sigSimulationStateChanged();
 
