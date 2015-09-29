@@ -54,6 +54,7 @@ public:
     ScopedConnectionSet simulatorConnections;
     optional<double> startingTime;
     optional<double> goalTime;
+    string remainingTimeOutputFile;
     Signal<void(bool isDoingSimulation)> sigSimulationStateChanged;
 
     typedef std::vector<JVRCEventPtr> RecordList;
@@ -170,6 +171,7 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 
 void JVRCManagerItemImpl::initialize()
 {
+    remainingTimeOutputFile = "jvrc-remaining-time.txt";
     simulatorItem = 0;
     score = 0;
     worldItem = 0;
@@ -912,6 +914,7 @@ void JVRCManagerItemImpl::doPutProperties(PutPropertyFunction& putProperty)
 {
     putProperty("Record file", recordFileBaseName,
                 boost::bind(&JVRCManagerItemImpl::onRecordFilePropertyChanged, this, _1));
+    putProperty("Remaining time output file", remainingTimeOutputFile, changeProperty(remainingTimeOutputFile));
 }
 
 
@@ -933,6 +936,7 @@ bool JVRCManagerItemImpl::store(Archive& archive)
 {
     archive.writeRelocatablePath("info", self->filePath());    
     archive.write("recordFile", recordFileBaseName);
+    archive.write("remainingTimeOutputFile", remainingTimeOutputFile);
     return true;
 }
 
@@ -948,6 +952,7 @@ bool JVRCManagerItemImpl::restore(const Archive& archive)
 {
     string filename;
     archive.read("recordFile", recordFileBaseName);
+    archive.read("remainingTimeOutputFile", remainingTimeOutputFile);
     if(archive.readRelocatablePath("info", filename)){
         return self->load(filename);
     }

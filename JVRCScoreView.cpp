@@ -92,7 +92,7 @@ public:
     
     QLabel scoreLabel;
     QLabel timeLabel;
-    QLabel restTimeLabel;
+    QLabel remainingTimeLabel;
     QLabel positionLabel;
     QLabel taskLabel;
     
@@ -186,12 +186,12 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     timeLabel.setAlignment(Qt::AlignHCenter);
     form->addRow(label, &timeLabel);
     
-    label = new QLabel("Rest:");
+    label = new QLabel("Time Left:");
     label->setFont(font);
-    restTimeLabel.setFont(font);
-    restTimeLabel.setText("0:00.00");
-    restTimeLabel.setAlignment(Qt::AlignHCenter);
-    form->addRow(label, &restTimeLabel);
+    remainingTimeLabel.setFont(font);
+    remainingTimeLabel.setText("0:00.00");
+    remainingTimeLabel.setAlignment(Qt::AlignHCenter);
+    form->addRow(label, &remainingTimeLabel);
     
     label = new QLabel("Position:");
     positionLabel.setText("0.0, 0.0, 0.0");
@@ -348,8 +348,8 @@ double JVRCScoreViewImpl::currentGameTime() const
 bool JVRCScoreViewImpl::onTimeChanged(double time)
 {
     timeLabel.setText(toTimeString(currentGameTime()));
-    double rest = std::max(0.0, timeLimit - currentGameTime());
-    restTimeLabel.setText(toTimeString(rest));
+    double remainingTime = std::max(0.0, timeLimit - currentGameTime());
+    remainingTimeLabel.setText(toTimeString(remainingTime));
     return false;
 }
 
