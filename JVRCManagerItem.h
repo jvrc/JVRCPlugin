@@ -46,7 +46,7 @@ public:
     boost::optional<double> goalTime() const;
     double elapsedTime(double simulationTime) const;
     double remainingTime(double elapsedTime) const;
-    static std::string toTimeString(double time);
+    static std::string toTimeString(double time, bool includeDecimal = true);
     static QString toTimeQString(double time);
 
     void requestToAbort();

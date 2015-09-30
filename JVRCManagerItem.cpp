@@ -58,12 +58,13 @@ public:
     optional<double> goalTime;
     string remainingTimeOutputFilename;
     std::ofstream remainingTimeOutputStream;
-    Timer remainingTimeOutputTimer;
+    LazyCaller outputRemainingTimeLater;
+    double lastRemainingTimeOutput;
     Signal<void(bool isDoingSimulation)> sigSimulationStateChanged;
 
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
-    Signal<void()> sigRecordUpdated;
+    Signal<void()> sigRecordUpdated; 
     string recordFileBaseName;
     string recordFileName;
     int score;
@@ -182,8 +183,7 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 void JVRCManagerItemImpl::initialize()
 {
     remainingTimeOutputFilename = "jvrc-remaining-time.txt";
-    remainingTimeOutputTimer.setInterval(500);
-    remainingTimeOutputTimer.sigTimeout().connect(
+    outputRemainingTimeLater.setFunction(
         boost::bind(&JVRCManagerItemImpl::outputRemainingTime, this));
 
     offsetTime = 0.0;
@@ -695,13 +695,17 @@ double JVRCManagerItemImpl::remainingTime() const
 }
 
 
-std::string JVRCManagerItem::toTimeString(double time)
+std::string JVRCManagerItem::toTimeString(double time, bool includeDecimal)
 {
     int hour = floor(time / 60.0 / 60.0);
     time -= hour * 60.0 * 60.0;
     int min = floor(time / 60.0);
     time -= min * 60.0;
-    return str(format("%1$02d:%2$02.2f") % min % time);
+    if(includeDecimal){
+        return str(format("%1$02d:%2$02.2f") % min % time);
+    } else {
+        return str(format("%1$02d:%2$02d") % min % time);
+    }
 }
 
 
@@ -720,20 +724,24 @@ QString JVRCManagerItem::toTimeQString(double time)
 void JVRCManagerItemImpl::startRemainingTimeOutput()
 {
     remainingTimeOutputStream.open(remainingTimeOutputFilename.c_str());
-    remainingTimeOutputTimer.start();
+    lastRemainingTimeOutput = std::numeric_limits<double>::max();
+    simulatorItem->addPreDynamicsFunction(outputRemainingTimeLater);
 }
 
 
 void JVRCManagerItemImpl::outputRemainingTime()
 {
-    remainingTimeOutputStream.seekp(0);
-    remainingTimeOutputStream << JVRCManagerItem::toTimeString(remainingTime()) << endl;
+    double t = floor(remainingTime());
+    if(t != lastRemainingTimeOutput){
+        remainingTimeOutputStream.seekp(0);
+        remainingTimeOutputStream << JVRCManagerItem::toTimeString(t, false) << endl;
+        lastRemainingTimeOutput = t;
+    }
 }
 
 
 void JVRCManagerItemImpl::stopRemaingTimeOutput()
 {
-    remainingTimeOutputTimer.stop();
     remainingTimeOutputStream.close();
 }
 
