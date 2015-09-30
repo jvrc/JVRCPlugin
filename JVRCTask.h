@@ -99,6 +99,7 @@ public:
     JVRCTask(Mapping* info);
 
     const std::string& name() const { return name_; }
+    const std::string& label() const { return label_; }
     void addEvent(JVRCEvent* event);
     int numEvents() const { return events.size(); }
     JVRCEvent* event(int index) { return events[index]; }
@@ -112,6 +113,7 @@ public:
 
 private:
     std::string name_;
+    std::string label_;
     std::vector<JVRCEventPtr> events;
     std::vector<JVRCGateEventPtr> gates;
     double timeLimit_;

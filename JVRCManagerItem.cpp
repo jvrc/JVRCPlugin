@@ -44,6 +44,7 @@ class JVRCManagerItemImpl
 {
 public:
     JVRCManagerItem* self;
+    MessageView* mv;
     ostream& os;
 
     std::vector<JVRCTaskPtr> tasks;
@@ -65,8 +66,7 @@ public:
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
     Signal<void()> sigRecordUpdated; 
-    string recordFileBaseName;
-    string recordFileName;
+    string recordFileNameBase;
     int score;
     
     int nextGateIndex;
@@ -126,7 +126,6 @@ public:
     void checkConnectionBetweenHoseAndNozzle();
     void finalizeSimulation();
     void doPutProperties(PutPropertyFunction& putProperty);
-    bool onRecordFilePropertyChanged(const std::string& filename);
     bool store(Archive& archive);
     bool restore(const Archive& archive);
 };
@@ -158,7 +157,8 @@ JVRCManagerItem::JVRCManagerItem()
 
 JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self)
     : self(self),
-      os(MessageView::instance()->cout())
+      mv(MessageView::instance()),
+      os(mv->cout())
 {
     initialize();
 }
@@ -173,10 +173,10 @@ JVRCManagerItem::JVRCManagerItem(const JVRCManagerItem& org)
 
 JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManagerItemImpl& org)
     : self(self),
-      os(MessageView::instance()->cout())
+      mv(MessageView::instance()),
+      os(mv->cout())
 {
     initialize();
-    recordFileBaseName = org.recordFileBaseName;
 }
 
 
@@ -294,7 +294,6 @@ bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
             string taskName = node.read<string>("task");
             JVRCTask* task = self->findTask(taskName);
             if(!task){
-                MessageView* mv = MessageView::instance();
                 mv->putln(MessageView::WARNING,
                           format("Task \"%1%\" for record \"%2%\" is not found.")
                           % taskName % label);
@@ -428,25 +427,47 @@ int JVRCManagerItem::score() const
 
 void JVRCManagerItemImpl::resetRecordFileName()
 {
-    recordFileName.clear();
-    if(!recordFileBaseName.empty()){
-        for(int i=0; i < 1000; ++i){
-            string filename = str(format("%1%_%2$03d.yaml") % recordFileBaseName % i);
-            if(!filesystem::exists(filename)){
-                recordFileName = filename;
-                break;
-            }
+    recordFileNameBase.clear();
+
+    if(!currentTask){
+        return;
+    }
+
+    string teamName;
+    ifstream teamNameFile("jvrc-team-name.txt");
+    teamNameFile >> teamName;
+
+    if(teamName.empty()){
+        mv->putln(MessageView::WARNING, "\"jvrc-team-name.txt\" is not found. Outputting record files is not available.");
+        return;
+    }
+    os << (format("Team name \"%1%\" was obtained from \"jvrc-team-name.txt\".") % teamName) << endl;
+    
+    string prefix = str(format("R_%1%_%2%") % teamName % currentTask->name());
+
+    for(int i=0; i < 1000; ++i){
+        string basename = str(format("%1%_%2$03d") % prefix % i);
+        string yamlfile = basename + ".yaml";
+        string csvfile = basename + ".csv";
+        if(!filesystem::exists(yamlfile) && !filesystem::exists(csvfile)){
+            recordFileNameBase = basename;
+            os << (format("Records are saved to \"%1%\" and \"%2%\".") % yamlfile % csvfile) << endl;
+            break;
         }
+    }
+
+    if(recordFileNameBase.empty()){
+        mv->putln(MessageView::WARNING, "Record file names cannot be determined. Outputting record files is not available.");
     }
 }
 
 
 void JVRCManagerItemImpl::saveRecords()
 {
-    if(recordFileName.empty()){
+    if(recordFileNameBase.empty()){
         return;
     }
-    YAMLWriter writer(recordFileName);
+    YAMLWriter writer(recordFileNameBase + ".yaml");
     writer.setKeyOrderPreservationMode(true);
     writer.putComment("JVRC Score Record File\n");
 
@@ -759,8 +780,8 @@ void JVRCManagerItemImpl::requestToAbort()
         if(showConfirmDialog("Abort", "Do you really want to abort the task?")){
             saveRecords();
             simulatorItem->stopSimulation();
-            showMessageBox(format("The time of aborting has been written to \"%1%\".")
-                           % recordFileName);
+            showMessageBox(format("The aborting time has been written to \"%1%\".")
+                           % (recordFileNameBase + ".yaml"));
         } else {
             simulatorItem->restartSimulation();
         }
@@ -1085,16 +1106,7 @@ void JVRCManagerItem::doPutProperties(PutPropertyFunction& putProperty)
 
 void JVRCManagerItemImpl::doPutProperties(PutPropertyFunction& putProperty)
 {
-    putProperty("Record file", recordFileBaseName,
-                boost::bind(&JVRCManagerItemImpl::onRecordFilePropertyChanged, this, _1));
     putProperty("Remaining time output file", remainingTimeOutputFilename, changeProperty(remainingTimeOutputFilename));
-}
-
-
-bool JVRCManagerItemImpl::onRecordFilePropertyChanged(const std::string& filename)
-{
-    recordFileBaseName = filename;
-    return true;
 }
 
 
@@ -1108,7 +1120,6 @@ bool JVRCManagerItem::store(Archive& archive)
 bool JVRCManagerItemImpl::store(Archive& archive)
 {
     archive.writeRelocatablePath("info", self->filePath());    
-    archive.write("recordFile", recordFileBaseName);
     archive.write("remainingTimeOutputFilename", remainingTimeOutputFilename);
     return true;
 }
@@ -1124,7 +1135,6 @@ bool JVRCManagerItem::restore(const Archive& archive)
 bool JVRCManagerItemImpl::restore(const Archive& archive)
 {
     string filename;
-    archive.read("recordFile", recordFileBaseName);
     archive.read("remainingTimeOutputFilename", remainingTimeOutputFilename);
     if(archive.readRelocatablePath("info", filename)){
         return self->load(filename);

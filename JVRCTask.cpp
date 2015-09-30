@@ -188,6 +188,7 @@ JVRCTask::JVRCTask(Mapping* info)
     : info_(info)
 {
     name_ = info->read<string>("name");
+    label_ = info->get("label", name_);
 
     double m = info->get("timeLimit", 10.0);
     timeLimit_ = m * 60.0;

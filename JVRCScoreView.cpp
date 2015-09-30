@@ -391,7 +391,7 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
 
     } else {
         JVRCTask* task = manager->task(taskIndex);
-        taskLabel.setText(QString("Task ") + task->name().c_str());
+        taskLabel.setText(QString("Task ") + task->label().c_str());
         timeLimit = task->timeLimit();
         const int n = task->numEvents();
         for(int i=0; i < n; ++i){
