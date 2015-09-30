@@ -27,6 +27,7 @@ JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info)
       task_(task)
 {
     info->read("label", label_);
+    subTaskLabel_ = info->get("subTaskLabel",label_);
     point_ = info->get("point", 0);
     level_ = info->get("level", 0);
 }
@@ -35,6 +36,7 @@ JVRCEvent::JVRCEvent(const std::string& type, JVRCTask* task, Mapping* info)
 JVRCEvent::JVRCEvent(const JVRCEvent& org)
     : type_(org.type_),
       label_(org.label_),
+      subTaskLabel_(org.subTaskLabel_),
       point_(org.point_),
       level_(org.level_),
       automaticRecordTime_(org.automaticRecordTime_),
@@ -123,7 +125,7 @@ JVRCGateEvent::JVRCGateEvent(JVRCTask* task, Mapping* info)
 
 void JVRCGateEvent::initialize()
 {
-    index_ = 0;
+    gateIndex_ = 0;
     isLabelSpecified = true;
     locations[0].setZero();
     locations[1].setZero();
@@ -133,7 +135,7 @@ void JVRCGateEvent::initialize()
 JVRCGateEvent::JVRCGateEvent(const JVRCGateEvent& org)
     : JVRCEvent(org)
 {
-    index_ = org.index_;
+    gateIndex_ = org.gateIndex_;
     locations[0] = org.locations[0];
     locations[1] = org.locations[1];
 }
@@ -149,7 +151,7 @@ bool JVRCGateEvent::isSameAs(JVRCEvent* event)
 {
     JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event);
     if(gate){
-        if(index_ == gate->index_){
+        if(gateIndex_ == gate->gateIndex_){
             return JVRCEvent::isSameAs(event);
         }
     }
@@ -157,9 +159,9 @@ bool JVRCGateEvent::isSameAs(JVRCEvent* event)
 }
 
 
-void JVRCGateEvent::setIndex(int i)
+void JVRCGateEvent::setGateIndex(int i)
 {
-    index_ = i;
+    gateIndex_ = i;
 
     if(!isLabelSpecified){
         setLabel(str(boost::format("Gate %1%") % (i + 1)));
@@ -171,7 +173,7 @@ bool JVRCGateEvent::isGoal() const
 {
     const JVRCTask* t = task();
     if(t){
-        return index() == (t->numGates() - 1);
+        return gateIndex() == (t->numGates() - 1);
     }
     return false;
 }
@@ -180,7 +182,66 @@ bool JVRCGateEvent::isGoal() const
 void JVRCGateEvent::write(YAMLWriter& writer)
 {
     JVRCEvent::write(writer);
-    writer.putKeyValue("gateIndex", index_);
+    writer.putKeyValue("gateIndex", gateIndex_);
+}
+
+
+
+
+
+
+
+
+
+JVRCActionEvent::JVRCActionEvent(JVRCTask* task)
+    : JVRCEvent("action", task)
+{
+    actionIndex_ = 0;
+}
+
+
+JVRCActionEvent::JVRCActionEvent(JVRCTask* task, Mapping* info)
+    : JVRCEvent("action", task, info)
+{
+    actionIndex_ = 0;
+}
+
+
+JVRCActionEvent::JVRCActionEvent(const JVRCActionEvent& org)
+    : JVRCEvent(org)
+{
+    actionIndex_ = org.actionIndex_;
+}
+
+
+JVRCEvent* JVRCActionEvent::clone()
+{
+    return new JVRCActionEvent(*this);
+}
+
+
+bool JVRCActionEvent::isSameAs(JVRCEvent* event)
+{
+    JVRCActionEvent* action = dynamic_cast<JVRCActionEvent*>(event);
+    if(action){
+        if(actionIndex_ == action->actionIndex_){
+            return JVRCEvent::isSameAs(event);
+        }
+    }
+    return false;
+}
+
+
+void JVRCActionEvent::setActionIndex(int i)
+{
+    actionIndex_ = i;
+}
+
+
+void JVRCActionEvent::write(YAMLWriter& writer)
+{
+    JVRCEvent::write(writer);
+    writer.putKeyValue("actionIndex", actionIndex_);
 }
 
 
@@ -200,6 +261,8 @@ JVRCTask::JVRCTask(Mapping* info)
             string type = eventInfo->read<string>("type");
             if(type == "gate"){
                 addEvent(new JVRCGateEvent(this, eventInfo));
+            } else if(type == "action"){
+                addEvent(new JVRCActionEvent(this ,eventInfo));
             } else {
                 addEvent(new JVRCEvent(type, this, eventInfo));
             }
@@ -213,7 +276,10 @@ void JVRCTask::addEvent(JVRCEvent* event)
     events.push_back(event);
 
     if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(event)){
-        gate->setIndex(gates.size());
+        gate->setGateIndex(gates.size());
         gates.push_back(gate);
+    } else if(JVRCActionEvent* action = dynamic_cast<JVRCActionEvent*>(event)){
+        action->setActionIndex(actions.size());
+        actions.push_back(action);
     }
 }

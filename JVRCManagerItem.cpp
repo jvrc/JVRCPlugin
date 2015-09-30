@@ -114,7 +114,9 @@ public:
     JVRCEvent* findRecord(JVRCEvent* event);
     void notifyRecordUpdate();
     void resetRecordFileName();
-    void saveRecords();    
+    void saveRecords();
+    void saveRecordsAsYAML();
+    void saveRecordsAsCSV();
     void onPositionChanged();
     void onItemsInWorldChanged();
     void initializeTask_R3_A();
@@ -304,8 +306,12 @@ bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
                 string type = node.read<string>("type");
                 if(type == "gate"){
                     JVRCGateEvent* gate = new JVRCGateEvent(task);
-                    gate->setIndex(node.read<int>("gateIndex"));
+                    gate->setGateIndex(node.read<int>("gateIndex"));
                     record = gate;
+                } else if(type == "action"){
+                    JVRCActionEvent* action = new JVRCActionEvent(task);
+                    action->setActionIndex(node.read<int>("actionIndex"));
+                    record = action;
                 } else {
                     record = new JVRCEvent(type, task);
                 }
@@ -474,6 +480,14 @@ void JVRCManagerItemImpl::saveRecords()
     if(recordFileNameBase.empty()){
         return;
     }
+
+    saveRecordsAsYAML();
+    saveRecordsAsCSV();
+}
+
+
+void JVRCManagerItemImpl::saveRecordsAsYAML()
+{
     YAMLWriter writer(recordFileNameBase + ".yaml");
     writer.setKeyOrderPreservationMode(true);
     writer.putComment("JVRC Score Record File\n");
@@ -495,7 +509,66 @@ void JVRCManagerItemImpl::saveRecords()
 
     writer.endMapping();
 }
-        
+
+
+void JVRCManagerItemImpl::saveRecordsAsCSV()
+{
+    ofstream ofs((recordFileNameBase + ".csv").c_str());
+
+    optional<double> goalTime;
+    for(RecordList::reverse_iterator p = records.rbegin(); p != records.rend(); ++p){
+        if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(p->get())){
+            if(gate->isGoal() && gate->manualRecordTime()){
+                goalTime = *gate->manualRecordTime();
+                break;
+            }
+        }
+    }
+
+    ofs << "ST-GT," << JVRCManagerItem::toTimeString(0.0, 2) << ",";
+    if(goalTime){
+        ofs << JVRCManagerItem::toTimeString(*goalTime, 2);
+    }
+    ofs << "\n";
+
+    if(currentTask->numGates() >= 3){
+        vector<optional<double> > timeRecords(currentTask->numGates());
+        for(size_t i=0; i < records.size(); ++i){
+            if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(records[i].get())){
+                timeRecords[gate->gateIndex()] = gate->manualRecordTime();
+            }
+        }
+        for(size_t i=0; i < timeRecords.size() - 1; ++i){
+            ofs << currentTask->gate(i)->subTaskLabel() << ",";
+            int passed = 1;
+            if(timeRecords[i]){
+                ofs << JVRCManagerItem::toTimeString(*timeRecords[i], 2);
+            } else {
+                passed = 0;
+            }
+            ofs << ",";
+            if(timeRecords[i+1]){
+                ofs << JVRCManagerItem::toTimeString(*timeRecords[i+1], 2);
+            } else {
+                passed = 0;
+            }
+            ofs << "," << passed << "\n";
+        }
+    } else if(currentTask->numActions() > 0){
+        dynamic_bitset<> clearFlags;
+        clearFlags.resize(currentTask->numActions());
+        for(size_t i=0; i < records.size(); ++i){
+            if(JVRCActionEvent* action = dynamic_cast<JVRCActionEvent*>(records[i].get())){
+                clearFlags[action->actionIndex()] = action->manualRecordTime();
+            }
+        }
+        for(size_t i=0; i < clearFlags.size() - 1; ++i){
+            int passed = clearFlags[i] ? 1 : 0;
+            ofs << currentTask->action(i)->subTaskLabel() << "," << passed << "\n";
+        }
+    }
+}
+
 
 void JVRCManagerItem::onPositionChanged()
 {
@@ -723,16 +796,21 @@ double JVRCManagerItemImpl::remainingTime() const
 }
 
 
-std::string JVRCManagerItem::toTimeString(double time, bool includeDecimal)
+std::string JVRCManagerItem::toTimeString(double time, int formatType)
 {
     int hour = floor(time / 60.0 / 60.0);
     time -= hour * 60.0 * 60.0;
     int min = floor(time / 60.0);
     time -= min * 60.0;
-    if(includeDecimal){
+    switch(formatType){
+    case 0:
+        return str(format("%1$02d:%2$02i") % min % floor(time));
+    case 1:
         return str(format("%1$02d:%2$02.2f") % min % time);
-    } else {
-        return str(format("%1$02d:%2$02d") % min % time);
+    case 2:
+        return str(format("%1$01d:%2$02d:%3$02i") % hour % min % floor(time));
+    default:
+        return "";
     }
 }
 
@@ -768,7 +846,7 @@ void JVRCManagerItemImpl::outputRemainingTime()
     double t = floor(remainingTime());
     if(t != lastRemainingTimeOutput){
         remainingTimeOutputStream.seekp(0);
-        remainingTimeOutputStream << JVRCManagerItem::toTimeString(t, false) << endl;
+        remainingTimeOutputStream << JVRCManagerItem::toTimeString(t, 1) << endl;
         lastRemainingTimeOutput = t;
     }
 }
@@ -972,7 +1050,7 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
             if(r > 0){
                 robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
                 if(isInFrontOfGate){
-                    os << "Gate " << gate->index() << " has been passed." << endl;
+                    os << "Gate " << gate->gateIndex() << " has been passed." << endl;
                     callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, gate, elapsedTime(), false));
                     ++nextGateIndex;
                 }
