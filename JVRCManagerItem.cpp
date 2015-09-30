@@ -57,7 +57,7 @@ public:
     double offsetTime;
     optional<double> startingTime;
     optional<double> goalTime;
-    string remainingTimeOutputFilename;
+    string remainingTimeOutputDirectory;
     std::ofstream remainingTimeOutputStream;
     LazyCaller outputRemainingTimeLater;
     double lastRemainingTimeOutput;
@@ -66,8 +66,9 @@ public:
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
     Signal<void()> sigRecordUpdated; 
-    string recordFileNameBase;
     int score;
+    string recordOutputDirectory;
+    string recordFileNameBase;
     
     int nextGateIndex;
     bool isInFrontOfGate;
@@ -182,9 +183,11 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 
 void JVRCManagerItemImpl::initialize()
 {
-    remainingTimeOutputFilename = "jvrc-remaining-time.txt";
+    remainingTimeOutputDirectory = "/home/samba/Time/";
     outputRemainingTimeLater.setFunction(
         boost::bind(&JVRCManagerItemImpl::outputRemainingTime, this));
+
+    recordOutputDirectory = "/media/player/JVRC4GU/.hidden/Score_JSS/";
 
     offsetTime = 0.0;
     simulatorItem = 0;
@@ -445,13 +448,17 @@ void JVRCManagerItemImpl::resetRecordFileName()
     
     string prefix = str(format("R_%1%_%2%") % teamName % currentTask->name());
 
+    if(filesystem::exists(recordOutputDirectory)){
+        prefix = recordOutputDirectory + prefix;
+    }
+
     for(int i=0; i < 1000; ++i){
         string basename = str(format("%1%_%2$03d") % prefix % i);
         string yamlfile = basename + ".yaml";
         string csvfile = basename + ".csv";
         if(!filesystem::exists(yamlfile) && !filesystem::exists(csvfile)){
             recordFileNameBase = basename;
-            os << (format("Records are saved to \"%1%\" and \"%2%\".") % yamlfile % csvfile) << endl;
+            os << (format("Records are saved to \"%1%.(yaml, csv)\".") % basename) << endl;
             break;
         }
     }
@@ -744,7 +751,13 @@ QString JVRCManagerItem::toTimeQString(double time)
 
 void JVRCManagerItemImpl::startRemainingTimeOutput()
 {
-    remainingTimeOutputStream.open(remainingTimeOutputFilename.c_str());
+    if(!filesystem::exists(remainingTimeOutputDirectory)){
+        remainingTimeOutputDirectory.clear();
+    }
+    string filename = remainingTimeOutputDirectory + "jvrc-remaining-time.txt";
+    remainingTimeOutputStream.open(filename.c_str());
+    os << (format("Remaining time is output to \"%1%\".") % filename) << endl;
+        
     lastRemainingTimeOutput = std::numeric_limits<double>::max();
     simulatorItem->addPreDynamicsFunction(outputRemainingTimeLater);
 }
@@ -1106,7 +1119,7 @@ void JVRCManagerItem::doPutProperties(PutPropertyFunction& putProperty)
 
 void JVRCManagerItemImpl::doPutProperties(PutPropertyFunction& putProperty)
 {
-    putProperty("Remaining time output file", remainingTimeOutputFilename, changeProperty(remainingTimeOutputFilename));
+
 }
 
 
@@ -1120,7 +1133,6 @@ bool JVRCManagerItem::store(Archive& archive)
 bool JVRCManagerItemImpl::store(Archive& archive)
 {
     archive.writeRelocatablePath("info", self->filePath());    
-    archive.write("remainingTimeOutputFilename", remainingTimeOutputFilename);
     return true;
 }
 
@@ -1135,7 +1147,6 @@ bool JVRCManagerItem::restore(const Archive& archive)
 bool JVRCManagerItemImpl::restore(const Archive& archive)
 {
     string filename;
-    archive.read("remainingTimeOutputFilename", remainingTimeOutputFilename);
     if(archive.readRelocatablePath("info", filename)){
         return self->load(filename);
     }
