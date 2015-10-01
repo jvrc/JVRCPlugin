@@ -77,6 +77,8 @@ public:
     ScopedConnection worldItemConnection;
     WorldItem* worldItem;
 
+    ItemList<BodyItem> bodyItems;
+
     BodyItem* robotItem;
     Link* robotMarkerLink;
     Position robotMarkerLocalPosition;
@@ -442,19 +444,28 @@ void JVRCManagerItemImpl::resetRecordFileName()
         return;
     }
 
+    bool recordOutputDirectoryExists = filesystem::exists(recordOutputDirectory);
+
+    string teamNameFileName = "jvrc-team-name.txt";
+    if(recordOutputDirectoryExists){
+        teamNameFileName = recordOutputDirectory + teamNameFileName;
+    }
+    
     string teamName;
-    ifstream teamNameFile("jvrc-team-name.txt");
+    ifstream teamNameFile(teamNameFileName.c_str());
     teamNameFile >> teamName;
 
     if(teamName.empty()){
-        mv->putln(MessageView::WARNING, "\"jvrc-team-name.txt\" is not found. Outputting record files is not available.");
+        mv->putln(MessageView::WARNING,
+                  format("\"%1%\" is not found. Outputting record files is not available.")
+                  % teamNameFileName);
         return;
     }
-    os << (format("Team name \"%1%\" was obtained from \"jvrc-team-name.txt\".") % teamName) << endl;
+    os << (format("Team name \"%1%\" was obtained from \"%2%\".") % teamName % teamNameFileName) << endl;
     
     string prefix = str(format("R_%1%_%2%") % teamName % currentTask->name());
 
-    if(filesystem::exists(recordOutputDirectory)){
+    if(recordOutputDirectoryExists){
         prefix = recordOutputDirectory + prefix;
     }
 
@@ -470,7 +481,8 @@ void JVRCManagerItemImpl::resetRecordFileName()
     }
 
     if(recordFileNameBase.empty()){
-        mv->putln(MessageView::WARNING, "Record file names cannot be determined. Outputting record files is not available.");
+        mv->putln(MessageView::WARNING,
+                  "Record file names cannot be determined. Outputting record files is not available.");
     }
 }
 
@@ -590,11 +602,20 @@ void JVRCManagerItemImpl::onPositionChanged()
 
 void JVRCManagerItemImpl::onItemsInWorldChanged()
 {
-    ItemList<BodyItem> bodyItems;
     BodyItem* bodyItem = 0;
-    if(bodyItems.extractChildItems(worldItem)){
+
+    ItemList<BodyItem> newBodyItems;
+    newBodyItems.extractChildItems(worldItem);
+
+    if(newBodyItems == bodyItems){
+        return;
+    }
+    bodyItems = newBodyItems;
+
+    if(!bodyItems.empty()){
         bodyItem = bodyItems.front();
     }
+    
     if(bodyItem != robotItem){
         robotItem = 0;
         robotMarkerLink = 0;
@@ -646,12 +667,13 @@ void JVRCManagerItemImpl::onItemsInWorldChanged()
 
 void JVRCManagerItemImpl::initializeTask_R3_A()
 {
-    JVRCTask* task = self->findTask("R3_A");
+    JVRCTask* task = self->findTask("R3-A");
+    if(!task){
+        task = self->findTask("R3_A");
+    }
     if(!task){
         return;
     }
-
-    spreaderEndPosition << 0.0, -0.415, 0.016;
 
     doorTargetPoints.clear();
     Listing& doorPointListing = *task->info()->findListing("doorTargetPoints");
@@ -667,9 +689,12 @@ void JVRCManagerItemImpl::initializeTask_R3_A()
         }
     }
     if(doorTargetPoints.empty()){
+        mv->putln(MessageView::WARNING,
+                  "There is no information on the door target points of the task R3-A.");
         return;
     }
 
+    spreaderEndPosition << 0.0, -0.415, 0.016;
     spreaderItem = worldItem->findItem<BodyItem>("spreader");
     if(spreaderItem){
         os << _("The spreader of the R3A task has been detected.") << endl;
@@ -994,7 +1019,7 @@ void JVRCManagerItemImpl::startTask_R3_A()
                     //isDoorDestroyed = false;
                     simDoor->setActive(true);
                     spreaderHitMarker->setRadius(minMarkerRadius);
-                    os << "The spreader and the car door of Task R3A has been detected." << endl;
+                    os << "The spreader and the car door of Task R3A have been detected." << endl;
                     simulatorItem->addPostDynamicsFunction(
                         boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
                 }
