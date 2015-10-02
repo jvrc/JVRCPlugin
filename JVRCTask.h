@@ -41,12 +41,14 @@ public:
     void setLevel(int level) { level_ = level; }
     int level() const { return level_; }
 
-    boost::optional<double> automaticRecordTime() const { return automaticRecordTime_; }
-    void setAutomaticRecordTime(double t) { automaticRecordTime_ = t; }
-    boost::optional<double> manualRecordTime() const { return manualRecordTime_; }
-    void setManualRecordTime(double t) { manualRecordTime_ = t; }
-    void clearManualRecordTime() { manualRecordTime_ = boost::none; }
-    bool isTimeRecorded() const { return manualRecordTime_ || automaticRecordTime_; }
+    
+    boost::optional<double> detectedTime() const { return detectedTime_; }
+    void setDetectedTime(double t) { detectedTime_ = t; }
+    boost::optional<double> judgedTime() const { return judgedTime_; }
+    void setJudgedTime(double t) { judgedTime_ = t; }
+    void clearTimes();
+    void clearManualRecordTime();
+    bool isTimeRecorded() const { return judgedTime_ || detectedTime_; }
     
     double time() const;
 
@@ -58,8 +60,8 @@ private:
     std::string subTaskLabel_;
     int point_;
     int level_;
-    boost::optional<double> automaticRecordTime_;
-    boost::optional<double> manualRecordTime_;
+    boost::optional<double> detectedTime_;
+    boost::optional<double> judgedTime_;
     weak_ref_ptr<JVRCTask> task_;
 };
 

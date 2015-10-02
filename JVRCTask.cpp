@@ -39,8 +39,8 @@ JVRCEvent::JVRCEvent(const JVRCEvent& org)
       subTaskLabel_(org.subTaskLabel_),
       point_(org.point_),
       level_(org.level_),
-      automaticRecordTime_(org.automaticRecordTime_),
-      manualRecordTime_(org.manualRecordTime_),
+      detectedTime_(org.detectedTime_),
+      judgedTime_(org.judgedTime_),
       task_(org.task_)
 {
 
@@ -65,13 +65,26 @@ bool JVRCEvent::isSameAs(JVRCEvent* event)
 }
 
 
+void JVRCEvent::clearTimes()
+{
+    detectedTime_ = boost::none;
+    judgedTime_ = boost::none;
+}
+    
+
+void JVRCEvent::clearManualRecordTime()
+{
+    judgedTime_ = boost::none;
+}
+
+
 double JVRCEvent::time() const
 {
-    if(manualRecordTime_){
-        return *manualRecordTime_;
+    if(judgedTime_){
+        return *judgedTime_;
     }
-    if(automaticRecordTime_){
-        return *automaticRecordTime_;
+    if(detectedTime_){
+        return *detectedTime_;
     }
     return 0.0;
 }
@@ -85,11 +98,11 @@ void JVRCEvent::write(YAMLWriter& writer)
     if(task){
         writer.putKeyValue("task", task->name());
     }
-    if(automaticRecordTime_){
-        writer.putKeyValue("autoTime", *automaticRecordTime_);
+    if(detectedTime_){
+        writer.putKeyValue("detectedTime", *detectedTime_);
     }
-    if(manualRecordTime_){
-        writer.putKeyValue("manualTime", *manualRecordTime_);
+    if(judgedTime_){
+        writer.putKeyValue("judgedTime", *judgedTime_);
     }
 }
 

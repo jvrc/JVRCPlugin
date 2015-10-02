@@ -58,8 +58,7 @@ public:
     bool loadRecords(const std::string& filename);
     int numRecords() const;
     JVRCEvent* record(int index);
-    void addRecord(JVRCEvent* event, double time, bool isManual = true);
-    void removeManualRecord(int index);
+    void addRecord(JVRCEvent* event, double time, bool isJudged = true);
     SignalProxy<void()> sigRecordUpdated();
     void notifyRecordUpdate();
     

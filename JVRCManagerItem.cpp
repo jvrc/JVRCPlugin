@@ -22,6 +22,7 @@
 #include <QFileDialog>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
+#include <algorithm>
 
 #include <iostream>
 
@@ -39,6 +40,12 @@ const double minMarkerRadius = 0.01;
 const double maxMarkerRadius = 0.15;
 
 JVRCManagerItemPtr instance_;
+
+struct EventTimeCmp {
+    bool operator()(const JVRCEventPtr& r1, const JVRCEventPtr& r2) const {
+        return r1->time() < r2->time();
+    }
+};
 
 }
 
@@ -116,7 +123,7 @@ public:
     void stopRemainingTimeChecker();
     void requestToAbort();
     bool loadJVRCInfo(const std::string& filename);
-    void addRecord(JVRCEventPtr event, double time, bool isManual);
+    void addRecord(JVRCEventPtr event, double time, bool isJudged);
     JVRCEvent* findRecord(JVRCEvent* event);
     void notifyRecordUpdate();
     void resetRecordFileName();
@@ -345,11 +352,11 @@ bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
                 }
                 record->setLabel(label);
                 double time;
-                if(node.read("autoTime", time)){
-                    record->setAutomaticRecordTime(time);
+                if(node.read("detectedTime", time)){
+                    record->setDetectedTime(time);
                 }
-                if(node.read("manualTime", time)){
-                    record->setManualRecordTime(time);
+                if(node.read("judgedTime", time)){
+                    record->setJudgedTime(time);
                 }
                 records.push_back(record);
             }
@@ -374,23 +381,23 @@ JVRCEvent* JVRCManagerItem::record(int index)
 }
 
 
-void JVRCManagerItem::addRecord(JVRCEvent* event, double time, bool isManual)
+void JVRCManagerItem::addRecord(JVRCEvent* event, double time, bool isJudged)
 {
-    impl->addRecord(event, time, isManual);
+    impl->addRecord(event, time, isJudged);
 }
 
 
-void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isManual)
+void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isJudged)
 {
     JVRCEvent* record = findRecord(event);
     if(!record){
         record = event->clone();
         records.push_back(record);
     }
-    if(isManual){
-        record->setManualRecordTime(time);
+    if(isJudged){
+        record->setJudgedTime(time);
     } else {
-        record->setAutomaticRecordTime(time);
+        record->setDetectedTime(time);
     }
 
     notifyRecordUpdate();
@@ -409,17 +416,6 @@ JVRCEvent* JVRCManagerItemImpl::findRecord(JVRCEvent* event)
 }
 
 
-void JVRCManagerItem::removeManualRecord(int index)
-{
-    JVRCEvent* record = impl->records[index];
-    record->clearManualRecordTime();
-    if(!record->isTimeRecorded()){
-        impl->records.erase(impl->records.begin() + index);
-    }
-    notifyRecordUpdate();
-}
-
-
 SignalProxy<void()> JVRCManagerItem::sigRecordUpdated()
 {
     return impl->sigRecordUpdated;
@@ -434,18 +430,27 @@ void JVRCManagerItem::notifyRecordUpdate()
 
 void JVRCManagerItemImpl::notifyRecordUpdate()
 {
-    //! \todo remove the records that do not have any time stamps
-
     goalTime = boost::none;
     score = 0;
-    for(size_t i=0; i < records.size(); ++i){
-        JVRCEvent* record = records[i];
-        JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(record);
-        if(gate && gate->isGoal() && gate->manualRecordTime()){
-            goalTime = *gate->manualRecordTime();
+
+    RecordList::iterator iter = records.begin();
+    while(iter != records.end()){
+        JVRCEvent* record = *iter;
+        if(!record->isTimeRecorded()){
+            iter = records.erase(iter);
+        } else {
+            if(record->judgedTime()){
+                JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(record);
+                if(gate && gate->isGoal()){
+                    goalTime = *gate->judgedTime();
+                }
+                score += record->point();
+            }
+            ++iter;
         }
-        score += record->point();
     }
+
+    std::sort(records.begin(), records.end(), EventTimeCmp());
 
     saveRecords();
     
@@ -553,8 +558,8 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
     optional<double> goalTime;
     for(RecordList::reverse_iterator p = records.rbegin(); p != records.rend(); ++p){
         if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(p->get())){
-            if(gate->isGoal() && gate->manualRecordTime()){
-                goalTime = *gate->manualRecordTime();
+            if(gate->isGoal() && gate->judgedTime()){
+                goalTime = *gate->judgedTime();
                 break;
             }
         }
@@ -570,7 +575,7 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
         vector<optional<double> > timeRecords(currentTask->numGates());
         for(size_t i=0; i < records.size(); ++i){
             if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(records[i].get())){
-                timeRecords[gate->gateIndex()] = gate->manualRecordTime();
+                timeRecords[gate->gateIndex()] = gate->judgedTime();
             }
         }
         for(size_t i=0; i < timeRecords.size() - 1; ++i){
@@ -594,7 +599,7 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
         clearFlags.resize(currentTask->numActions());
         for(size_t i=0; i < records.size(); ++i){
             if(JVRCActionEvent* action = dynamic_cast<JVRCActionEvent*>(records[i].get())){
-                clearFlags[action->actionIndex()] = action->manualRecordTime();
+                clearFlags[action->actionIndex()] = action->judgedTime();
             }
         }
         for(size_t i=0; i < clearFlags.size() - 1; ++i){
