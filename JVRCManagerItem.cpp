@@ -9,6 +9,7 @@
 #include <cnoid/SimulatorItem>
 #include <cnoid/WorldItem>
 #include <cnoid/ItemManager>
+#include <cnoid/MainWindow>
 #include <cnoid/MessageView>
 #include <cnoid/Archive>
 #include <cnoid/Body>
@@ -18,6 +19,7 @@
 #include <cnoid/YAMLReader>
 #include <cnoid/ConnectionSet>
 #include <cnoid/Timer>
+#include <QFileDialog>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/bind.hpp>
 
@@ -30,6 +32,8 @@ using namespace cnoid;
 using namespace boost;
 
 namespace {
+
+bool START_COMPETITION_AT_STARTING_SIMULATION = true;
 
 const double minMarkerRadius = 0.01;
 const double maxMarkerRadius = 0.15;
@@ -59,7 +63,7 @@ public:
     optional<double> goalTime;
     string remainingTimeOutputDirectory;
     std::ofstream remainingTimeOutputStream;
-    LazyCaller outputRemainingTimeLater;
+    LazyCaller checkRemainingTimeLater;
     double lastRemainingTimeOutput;
     Signal<void(bool isDoingSimulation)> sigSimulationStateChanged;
 
@@ -105,11 +109,11 @@ public:
     void initialize();
     bool loadRecords(const std::string& filename);
     void setCurrentTask(JVRCTask* task);
+    static std::string toTimeString(double time, int formatType = 0);
     double elapsedTime() const;
-    double remainingTime() const;
-    void startRemainingTimeOutput();
-    void outputRemainingTime();
-    void stopRemaingTimeOutput();
+    void startRemainingTimeChecker();
+    void checkRemainingTime();
+    void stopRemainingTimeChecker();
     void requestToAbort();
     bool loadJVRCInfo(const std::string& filename);
     void addRecord(JVRCEventPtr event, double time, bool isManual);
@@ -188,8 +192,8 @@ JVRCManagerItemImpl::JVRCManagerItemImpl(JVRCManagerItem* self, const JVRCManage
 void JVRCManagerItemImpl::initialize()
 {
     remainingTimeOutputDirectory = "/home/samba/Time/";
-    outputRemainingTimeLater.setFunction(
-        boost::bind(&JVRCManagerItemImpl::outputRemainingTime, this));
+    checkRemainingTimeLater.setFunction(
+        boost::bind(&JVRCManagerItemImpl::checkRemainingTime, this));
 
     recordOutputDirectory = "/media/player/JVRC4GU/.hidden/Score_JSS/";
 
@@ -277,6 +281,28 @@ void JVRCManagerItem::clearRecords()
 }
 
 
+bool JVRCManagerItem::showDialogToLoadRecords()
+{
+    QString directory;
+    if(filesystem::exists(impl->recordOutputDirectory)){
+        directory = impl->recordOutputDirectory.c_str();
+    } else {
+        directory = QDir::currentPath();
+    }
+    
+    QString filename =
+        QFileDialog::getOpenFileName(
+            MainWindow::instance(),
+            _("Load a JVRC event record file"),
+            directory, _("JVRC event record files (*.yaml)"));
+
+    if(!filename.isNull()){
+        return loadRecords(filename.toStdString());
+    }
+    return false;
+}
+
+
 bool JVRCManagerItem::loadRecords(const std::string& filename)
 {
     return impl->loadRecords(filename);
@@ -327,9 +353,10 @@ bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
                 }
                 records.push_back(record);
             }
-            notifyRecordUpdate();
         }
     }
+
+    notifyRecordUpdate();
     
     return true;
 }
@@ -355,10 +382,6 @@ void JVRCManagerItem::addRecord(JVRCEvent* event, double time, bool isManual)
 
 void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isManual)
 {
-    if(!startingTime){
-        self->startTimeCount();
-    }
-    
     JVRCEvent* record = findRecord(event);
     if(!record){
         record = event->clone();
@@ -469,8 +492,8 @@ void JVRCManagerItemImpl::resetRecordFileName()
         prefix = recordOutputDirectory + prefix;
     }
 
-    for(int i=0; i < 1000; ++i){
-        string basename = str(format("%1%_%2$03d") % prefix % i);
+    for(int i=0; i < 100; ++i){
+        string basename = str(format("%1%_%2$02d") % prefix % i);
         string yamlfile = basename + ".yaml";
         string csvfile = basename + ".csv";
         if(!filesystem::exists(yamlfile) && !filesystem::exists(csvfile)){
@@ -482,7 +505,7 @@ void JVRCManagerItemImpl::resetRecordFileName()
 
     if(recordFileNameBase.empty()){
         mv->putln(MessageView::WARNING,
-                  "Record file names cannot be determined. Outputting record files is not available.");
+                  "There is no empty number for the record file suffix. Outputting record files is not available.");
     }
 }
 
@@ -537,9 +560,9 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
         }
     }
 
-    ofs << "ST-GT," << JVRCManagerItem::toTimeString(0.0, 2) << ",";
+    ofs << "ST-GT," << toTimeString(0.0, 1) << ",";
     if(goalTime){
-        ofs << JVRCManagerItem::toTimeString(*goalTime, 2);
+        ofs << toTimeString(*goalTime, 1);
     }
     ofs << "\n";
 
@@ -554,13 +577,13 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
             ofs << currentTask->gate(i)->subTaskLabel() << ",";
             int passed = 1;
             if(timeRecords[i]){
-                ofs << JVRCManagerItem::toTimeString(*timeRecords[i], 2);
+                ofs << toTimeString(*timeRecords[i], 1);
             } else {
                 passed = 0;
             }
             ofs << ",";
             if(timeRecords[i+1]){
-                ofs << JVRCManagerItem::toTimeString(*timeRecords[i+1], 2);
+                ofs << toTimeString(*timeRecords[i+1], 1);
             } else {
                 passed = 0;
             }
@@ -764,10 +787,40 @@ void JVRCManagerItemImpl::setCurrentTask(JVRCTask* task)
 }
 
 
+std::string JVRCManagerItemImpl::toTimeString(double time, int formatType)
+{
+    int hour = floor(time / 60.0 / 60.0);
+    time -= hour * 60.0 * 60.0;
+    int min = floor(time / 60.0);
+    time -= min * 60.0;
+    switch(formatType){
+    case 0:
+        return str(format("%1$02d:%2$02i") % min % time);
+    case 1:
+        return str(format("%1$01d:%2$02d:%3$02i") % hour % min % floor(time));
+    default:
+        return "";
+    }
+}
+
+
+QString JVRCManagerItem::toTimeQString(double time)
+{
+    int hour = floor(time / 60.0 / 60.0);
+    time -= hour * 60.0 * 60.0;
+    int min = floor(time / 60.0);
+    time -= min * 60.0;
+    return QString("%2:%3")
+        .arg(min, 2, 10, QLatin1Char('0'))
+        .arg(time, 5, 'f', 2, QLatin1Char('0'));
+}
+
+
 boost::optional<double> JVRCManagerItem::startTimeCount()
 {
     if(impl->simulatorItem){
         impl->startingTime = impl->simulatorItem->simulationTime();
+        impl->saveRecords();
     }
     return impl->startingTime;
 }
@@ -787,7 +840,9 @@ boost::optional<double> JVRCManagerItem::goalTime() const
 
 double JVRCManagerItem::elapsedTime(double simulationTime) const
 {
-    if(impl->startingTime){
+    if(impl->goalTime){
+        return *impl->goalTime;
+    } else if(impl->startingTime){
         return std::max(0.0, simulationTime - *impl->startingTime + impl->offsetTime);
     } else {
         return impl->offsetTime;
@@ -815,44 +870,7 @@ double JVRCManagerItem::remainingTime(double elapsedTime) const
 }
     
 
-double JVRCManagerItemImpl::remainingTime() const
-{
-    return self->remainingTime(elapsedTime());
-}
-
-
-std::string JVRCManagerItem::toTimeString(double time, int formatType)
-{
-    int hour = floor(time / 60.0 / 60.0);
-    time -= hour * 60.0 * 60.0;
-    int min = floor(time / 60.0);
-    time -= min * 60.0;
-    switch(formatType){
-    case 0:
-        return str(format("%1$02d:%2$02i") % min % floor(time));
-    case 1:
-        return str(format("%1$02d:%2$02.2f") % min % time);
-    case 2:
-        return str(format("%1$01d:%2$02d:%3$02i") % hour % min % floor(time));
-    default:
-        return "";
-    }
-}
-
-
-QString JVRCManagerItem::toTimeQString(double time)
-{
-    int hour = floor(time / 60.0 / 60.0);
-    time -= hour * 60.0 * 60.0;
-    int min = floor(time / 60.0);
-    time -= min * 60.0;
-    return QString("%2:%3")
-        .arg(min, 2, 10, QLatin1Char('0'))
-        .arg(time, 5, 'f', 2, QLatin1Char('0'));
-}
-
-
-void JVRCManagerItemImpl::startRemainingTimeOutput()
+void JVRCManagerItemImpl::startRemainingTimeChecker()
 {
     if(!filesystem::exists(remainingTimeOutputDirectory)){
         remainingTimeOutputDirectory.clear();
@@ -862,22 +880,25 @@ void JVRCManagerItemImpl::startRemainingTimeOutput()
     os << (format("Remaining time is output to \"%1%\".") % filename) << endl;
         
     lastRemainingTimeOutput = std::numeric_limits<double>::max();
-    simulatorItem->addPreDynamicsFunction(outputRemainingTimeLater);
+    simulatorItem->addPreDynamicsFunction(checkRemainingTimeLater);
 }
 
 
-void JVRCManagerItemImpl::outputRemainingTime()
+void JVRCManagerItemImpl::checkRemainingTime()
 {
-    double t = floor(remainingTime());
+    double t = ceil(self->remainingTime(elapsedTime()));
     if(t != lastRemainingTimeOutput){
+        if(t <= 0.0){
+            saveRecords();
+        }
         remainingTimeOutputStream.seekp(0);
-        remainingTimeOutputStream << JVRCManagerItem::toTimeString(t, 1) << endl;
+        remainingTimeOutputStream << toTimeString(t) << endl;
         lastRemainingTimeOutput = t;
     }
 }
 
 
-void JVRCManagerItemImpl::stopRemaingTimeOutput()
+void JVRCManagerItemImpl::stopRemainingTimeChecker()
 {
     remainingTimeOutputStream.close();
 }
@@ -993,7 +1014,11 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 
     resetRecordFileName();
 
-    startRemainingTimeOutput();
+    if(START_COMPETITION_AT_STARTING_SIMULATION){
+        self->startTimeCount();
+    }
+
+    startRemainingTimeChecker();
 
     return true;
 }
@@ -1206,7 +1231,8 @@ void JVRCManagerItem::finalizeSimulation()
 
 void JVRCManagerItemImpl::finalizeSimulation()
 {
-    stopRemaingTimeOutput();
+    saveRecords();
+    stopRemainingTimeChecker();
     sigSimulationStateChanged(false);
     simulatorConnections.disconnect();
     simulatorItem = 0;

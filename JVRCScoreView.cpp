@@ -9,14 +9,12 @@
 #include <cnoid/TimeBar>
 #include <cnoid/Button>
 #include <cnoid/MessageView>
-#include <cnoid/MainWindow>
 #include <QBoxLayout>
 #include <QFormLayout>
 #include <QLabel>
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QKeyEvent>
-#include <QFileDialog>
 #include <boost/bind.hpp>
 #include <set>
 #include <cmath>
@@ -30,6 +28,8 @@ using namespace boost;
 namespace {
 
 bool TRACE_FUNCTIONS = false;
+
+bool ENABLE_START_BUTTON = false;
 
 class RecordTableWidget : public QTableWidget
 {
@@ -114,7 +114,6 @@ public:
     void onRecordUpdated();
     void onAdoptAutoTimeButtonClicked(int recordIndex);
     void clearSelectedManualTimes();
-    void onLoadButtonClicked();
 };
 
 }
@@ -281,13 +280,17 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     vbox->addWidget(&recordTable);
 
     hbox = new QHBoxLayout;
-    startButton.setText("Start");
-    startButton.sigClicked().connect(
-        boost::bind(&JVRCScoreViewImpl::onStartButtonClicked, this));
-    hbox->addWidget(&startButton);
+
+    if(ENABLE_START_BUTTON){
+        startButton.setText("Start");
+        startButton.sigClicked().connect(
+            boost::bind(&JVRCScoreViewImpl::onStartButtonClicked, this));
+        hbox->addWidget(&startButton);
+    }
+    
     loadButton.setText("Load");
     loadButton.sigClicked().connect(
-        boost::bind(&JVRCScoreViewImpl::onLoadButtonClicked, this));
+        boost::bind(&JVRCManagerItem::showDialogToLoadRecords, manager));
     hbox->addWidget(&loadButton);
     abortButton.setText("Abort");
     abortButton.sigClicked().connect(
@@ -498,6 +501,8 @@ void JVRCScoreViewImpl::onRecordUpdated()
     }
 
     recordTable.setSortingEnabled(true);
+
+    onTimeChanged(TimeBar::instance()->time());
 }
 
 
@@ -525,18 +530,4 @@ void JVRCScoreViewImpl::clearSelectedManualTimes()
         }
     }
     manager->notifyRecordUpdate();
-}
-
-
-void JVRCScoreViewImpl::onLoadButtonClicked()
-{
-    QString filename =
-        QFileDialog::getOpenFileName(
-            MainWindow::instance(),
-            _("Load a JVRC event record file"),
-            QDir::currentPath(), _("JVRC event record files (*.yaml)"));
-
-    if(!filename.isNull()){
-        manager->loadRecords(filename.toStdString());
-    }
 }
