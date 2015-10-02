@@ -18,6 +18,8 @@
 #include <cnoid/FileUtil>
 #include <cnoid/YAMLReader>
 #include <cnoid/ConnectionSet>
+#include <cnoid/AppConfig>
+#include <cnoid/MenuManager>
 #include <cnoid/Timer>
 #include <QFileDialog>
 #include <boost/dynamic_bitset.hpp>
@@ -35,6 +37,14 @@ using namespace boost;
 namespace {
 
 bool START_COMPETITION_AT_STARTING_SIMULATION = true;
+
+Action* autoCopyFromDetectedToJudgedCheck;
+
+void onAutoCopyFromDetectedToJudgedCheckToggled(bool on)
+{
+    AppConfig::archive()->openMapping("JVRCPlugin")->write("autoCopyFromDetectedToJudged", on);
+}
+
 
 const double minMarkerRadius = 0.01;
 const double maxMarkerRadius = 0.15;
@@ -117,7 +127,7 @@ public:
     bool loadRecords(const std::string& filename);
     void setCurrentTask(JVRCTask* task);
     static std::string toTimeString(double time, int formatType = 0);
-    double elapsedTime() const;
+    double elapsedTime(bool isGoalTimeMax = false) const;
     void startRemainingTimeChecker();
     void checkRemainingTime();
     void stopRemainingTimeChecker();
@@ -156,6 +166,13 @@ void JVRCManagerItem::initializeClass(ExtensionManager* ext)
     im.registerClass<JVRCManagerItem>(N_("JVRCManagerItem"), instance_);
     im.addLoader<JVRCManagerItem>(_("JVRC Info"), "JVRC-INFO", "yaml",
                                   boost::bind(&JVRCManagerItem::loadJVRCInfo, _1, _2));
+
+    MenuManager& mm = ext->menuManager();
+    MappingPtr config = AppConfig::archive()->openMapping("JVRCPlugin");
+    mm.setPath("/Options").setPath(N_("JVRC Plugin"));
+    autoCopyFromDetectedToJudgedCheck = mm.addCheckItem(_("Automatic copy from the detected time to the judged time"));
+    autoCopyFromDetectedToJudgedCheck->setChecked(config->get("autoCopyFromDetectedToJudged", true));
+    autoCopyFromDetectedToJudgedCheck->sigToggled().connect(onAutoCopyFromDetectedToJudgedCheckToggled);
 }
 
 
@@ -400,6 +417,11 @@ void JVRCManagerItemImpl::addRecord(JVRCEventPtr event, double time, bool isJudg
         record->setJudgedTime(time);
     } else {
         record->setDetectedTime(time);
+        if(autoCopyFromDetectedToJudgedCheck->isChecked()){
+            if(!record->judgedTime()){
+                record->setJudgedTime(time);
+            }
+        }
     }
 
     notifyRecordUpdate();
@@ -547,7 +569,7 @@ void JVRCManagerItemImpl::saveRecordsAsYAML()
         writer.endListing();
     }
 
-    writer.putKeyValue("elapsedTime", elapsedTime());
+    writer.putKeyValue("elapsedTime", elapsedTime(true));
 
     writer.endMapping();
 }
@@ -845,9 +867,9 @@ boost::optional<double> JVRCManagerItem::goalTime() const
 }
 
 
-double JVRCManagerItem::elapsedTime(double simulationTime) const
+double JVRCManagerItem::elapsedTime(double simulationTime, bool isGoalTimeMax) const
 {
-    if(impl->goalTime){
+    if(impl->goalTime && isGoalTimeMax){
         return *impl->goalTime;
     } else if(impl->startingTime){
         return std::max(0.0, simulationTime - *impl->startingTime + impl->offsetTime);
@@ -857,12 +879,12 @@ double JVRCManagerItem::elapsedTime(double simulationTime) const
 }
 
 
-double JVRCManagerItemImpl::elapsedTime() const
+double JVRCManagerItemImpl::elapsedTime(bool isGoalTimeMax) const
 {
     if(simulatorItem){
-        return self->elapsedTime(simulatorItem->simulationTime());
+        return self->elapsedTime(simulatorItem->simulationTime(), isGoalTimeMax);
     } else {
-        return self->elapsedTime(0.0);
+        return self->elapsedTime(0.0, false);
     }
 }
 

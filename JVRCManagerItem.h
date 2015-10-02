@@ -44,7 +44,7 @@ public:
     boost::optional<double> startTimeCount();
     boost::optional<double> startingTime() const;
     boost::optional<double> goalTime() const;
-    double elapsedTime(double simulationTime) const;
+    double elapsedTime(double simulationTime, bool isGoalTimeMax = true) const;
     double remainingTime(double elapsedTime) const;
     static std::string toTimeString(double time, int formatType = 0);
     static QString toTimeQString(double time);
