@@ -281,10 +281,12 @@ ItemPtr JVRCManagerItem::doDuplicate() const
 }
 
 
-void JVRCManagerItem::clearRecords()
+void JVRCManagerItem::clearRecords(bool doNotify)
 {
     impl->records.clear();
-    notifyRecordUpdate();
+    if(doNotify){
+        notifyRecordUpdate();
+    }
 }
 
 
@@ -318,7 +320,7 @@ bool JVRCManagerItem::loadRecords(const std::string& filename)
 
 bool JVRCManagerItemImpl::loadRecords(const std::string& filename)
 {
-    self->clearRecords();
+    self->clearRecords(false);
     
     YAMLReader reader;
     MappingPtr info = reader.loadDocument(filename)->toMapping();

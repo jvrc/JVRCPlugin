@@ -53,7 +53,7 @@ public:
     
     SignalProxy<void(bool isDoingSimulation)> sigSimulationStateChanged();
 
-    void clearRecords();
+    void clearRecords(bool doNotify);
     bool showDialogToLoadRecords();
     bool loadRecords(const std::string& filename);
     int numRecords() const;
