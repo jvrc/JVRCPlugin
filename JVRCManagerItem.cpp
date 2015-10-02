@@ -555,19 +555,19 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
 {
     ofstream ofs((recordFileNameBase + ".csv").c_str());
 
-    optional<double> goalTime;
+    optional<double> endTime;
     for(RecordList::reverse_iterator p = records.rbegin(); p != records.rend(); ++p){
         if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(p->get())){
             if(gate->isGoal() && gate->judgedTime()){
-                goalTime = *gate->judgedTime();
+                endTime = *gate->judgedTime();
                 break;
             }
         }
     }
 
     ofs << "ST-GT," << toTimeString(0.0, 1) << ",";
-    if(goalTime){
-        ofs << toTimeString(*goalTime, 1);
+    if(endTime){
+        ofs << toTimeString(*endTime, 1);
     }
     ofs << "\n";
 
