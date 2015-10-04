@@ -589,9 +589,9 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
         }
     }
 
-    ofs << "ST-GT," << toTimeString(0.0, 1) << ",";
+    ofs << "ST-GT," << toTimeString(0.0, 1);
     if(endTime){
-        ofs << toTimeString(*endTime, 1);
+        ofs << "," << toTimeString(*endTime, 1);
     }
     ofs << "\n";
 
@@ -604,19 +604,15 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
         }
         for(size_t i=0; i < timeRecords.size() - 1; ++i){
             ofs << currentTask->gate(i)->subTaskLabel() << ",";
-            int passed = 1;
+            int passed = (timeRecords[i] && timeRecords[i+1]);
+            ofs << passed;
             if(timeRecords[i]){
-                ofs << toTimeString(*timeRecords[i], 1);
-            } else {
-                passed = 0;
+                ofs << "," << toTimeString(*timeRecords[i], 1);
             }
-            ofs << ",";
             if(timeRecords[i+1]){
-                ofs << toTimeString(*timeRecords[i+1], 1);
-            } else {
-                passed = 0;
+                ofs << "," << toTimeString(*timeRecords[i+1], 1);
             }
-            ofs << "," << passed << "\n";
+            ofs << "\n";
         }
     } else if(currentTask->numActions() > 0){
         dynamic_bitset<> clearFlags;
