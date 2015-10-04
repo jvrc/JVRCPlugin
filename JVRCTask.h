@@ -138,7 +138,8 @@ public:
     JVRCGateEvent* gate(int index) { return gates[index]; }
 
     int numActions() const { return actions.size(); }
-    JVRCEvent* action(int index) { return actions[index]; }
+    JVRCActionEvent* action(int index) { return actions[index]; }
+    JVRCActionEvent* findAction(const std::string& label);
 
     double timeLimit() const { return timeLimit_; }
 
@@ -149,7 +150,7 @@ private:
     std::string label_;
     std::vector<JVRCEventPtr> events;
     std::vector<JVRCGateEventPtr> gates;
-    std::vector<JVRCEventPtr> actions;
+    std::vector<JVRCActionEventPtr> actions;
     double timeLimit_;
     MappingPtr info_;
 };

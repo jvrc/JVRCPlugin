@@ -75,6 +75,7 @@ public:
 
     SimulatorItem* simulatorItem;
     ScopedConnectionSet simulatorConnections;
+    double timeStep;
     double offsetTime;
     optional<double> startingTime;
     optional<double> goalTime;
@@ -114,7 +115,7 @@ public:
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetPoints;
     std::vector<Vector3, Eigen::aligned_allocator<Vector3> > doorTargetNormals;
     boost::dynamic_bitset<> doorDestroyFlags;
-    int hitCount;
+    double hitTimeCount;
     int hitIndex;
 
     Link* hoseEndLink;
@@ -999,6 +1000,7 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     goalTime = boost::none;
     
     this->simulatorItem = simulatorItem;
+    timeStep = simulatorItem->worldTimeStep();
 
     simulatorConnections.disconnect();
     simulatorConnections.add(
@@ -1064,7 +1066,7 @@ void JVRCManagerItemImpl::startTask_R3_A()
                 if(spreaderHitMarker){
                     doorDestroyFlags.clear();
                     doorDestroyFlags.resize(doorTargetPoints.size());
-                    hitCount = 0;
+                    hitTimeCount = 0.0;
                     hitIndex = -1;
                     //isDoorDestroyed = false;
                     simDoor->setActive(true);
@@ -1162,7 +1164,7 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
             if(theta > thresh){
                 isHitting = true;
                 if(i != hitIndex){
-                    hitCount = 0;
+                    hitTimeCount = 0.0;
                     hitIndex = i;
                 }
                 break;
@@ -1170,29 +1172,36 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
         }
     }
 
+    static const double requiredTimeForDestruction = 3.0;
+
     bool changed = false;
     if(isHitting){
-        double r = spreaderHitMarker->radius() + 0.0005;
-        if(r > maxMarkerRadius){
-            if(!doorDestroyFlags[hitIndex]){
-                ++hitCount;
-                if(hitCount == 10){
-                    doorDestroyFlags[hitIndex] = true;
+        if(!doorDestroyFlags[hitIndex]){
+            hitTimeCount += timeStep;
+            if(hitTimeCount >= requiredTimeForDestruction){
+                doorDestroyFlags[hitIndex] = true;
+                hitTimeCount = 0.0;
 
-                    JVRCEvent* event = new JVRCEvent("action", currentTask);
-                    event->setLabel(str(format("Spreader %1%") % hitIndex));
-                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
+                JVRCEvent* event = new JVRCEvent("internal", currentTask);
+                event->setLabel(str(format("Cut %1%") % hitIndex));
+                callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
                     
-                    if(doorDestroyFlags.count() == doorDestroyFlags.size()){
-                        doorRoot->T().translation().z() -= 2.0;
-
-                        JVRCEvent* event = new JVRCEvent("action", currentTask);
-                        event->setLabel("Door");
-                        callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
+                if(doorDestroyFlags.count() == doorDestroyFlags.size()){
+                    doorRoot->T().translation().z() -= 2.0;
+                    if(currentTask){
+                        JVRCEvent* event = currentTask->findAction("Remove Door");
+                        if(event){
+                            callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
+                        }
                     }
-                    hitCount = 0;
                 }
             }
+        }
+        
+        static const double deltaRadius =
+            9.0 * (maxMarkerRadius - minMarkerRadius) / (requiredTimeForDestruction / timeStep);
+        double r = spreaderHitMarker->radius() + deltaRadius;
+        if(r > maxMarkerRadius){
             r = minMarkerRadius;
         }
         if(doorDestroyFlags[hitIndex]){
@@ -1205,13 +1214,6 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
     }
     if(isHitting != spreaderHitMarker->on()){
         spreaderHitMarker->on(isHitting);
-        /*
-        if(isHitting){
-            os << "The spreader is hiting to a target point." << endl;
-        } else {
-            os << "The spreader is not hitting to any target points." << endl;
-        }
-        */
         changed = true;
     }
     if(changed){

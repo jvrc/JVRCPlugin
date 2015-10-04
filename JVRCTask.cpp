@@ -296,3 +296,14 @@ void JVRCTask::addEvent(JVRCEvent* event)
         actions.push_back(action);
     }
 }
+
+
+JVRCActionEvent* JVRCTask::findAction(const std::string& label)
+{
+    for(size_t i=0; i < actions.size(); ++i){
+        if(actions[i]->label() == label){
+            return actions[i];
+        }
+    }
+    return 0;
+}
