@@ -86,6 +86,7 @@ public:
     QVBoxLayout buttonVBox;
     QHBoxLayout buttonHBox1;
     QHBoxLayout buttonHBox2;
+    QHBoxLayout buttonHBox3;
     QSpacerItem* buttonVBoxSpacer;
     vector<PushButton*> buttons;
     PushButton startButton;
@@ -231,6 +232,7 @@ JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
     buttonVBox.setContentsMargins(4, 4, 4, 4);
     buttonVBox.addLayout(&buttonHBox1);
     buttonVBox.addLayout(&buttonHBox2);
+    buttonVBox.addLayout(&buttonHBox3);
     buttonVBoxSpacer = new QSpacerItem(0, 0);
     buttonVBox.addSpacerItem(buttonVBoxSpacer);
     frame->setLayout(&buttonVBox);
@@ -386,7 +388,7 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
     }
     buttons.clear();
 
-    bool isButtonBox2Used = false;
+    bool useMultiButtonRows = false;
     
     if(taskIndex >= manager->numTasks()){
         taskLabel.setText("");
@@ -404,16 +406,19 @@ void JVRCScoreViewImpl::setCurrentTask(int taskIndex)
                 boost::bind(&JVRCScoreViewImpl::onEventButtonClicked, this, i));
             if(event->level() == 0){
                 buttonHBox1.addWidget(button);
-            } else {
+            } else if(event->level() == 1){
                 buttonHBox2.addWidget(button);
-                isButtonBox2Used = true;
+                useMultiButtonRows = true;
+            } else {
+                buttonHBox3.addWidget(button);
+                useMultiButtonRows = true;
             }
             buttons.push_back(button);
         }
         currentTaskIndex = taskIndex;
     }
 
-    if(isButtonBox2Used){
+    if(useMultiButtonRows){
         buttonVBoxSpacer->changeSize(0, 0);
     } else {
         if(!buttons.empty()){
