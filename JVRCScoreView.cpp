@@ -31,15 +31,6 @@ bool TRACE_FUNCTIONS = false;
 
 bool ENABLE_START_BUTTON = false;
 
-class RecordTableWidget : public QTableWidget
-{
-public:
-    RecordTableWidget(JVRCScoreViewImpl* impl) : scoreViewImpl(impl) { }
-    virtual void keyPressEvent(QKeyEvent* event);
-
-    JVRCScoreViewImpl* scoreViewImpl;
-};
-
 class RecordItem : public QTableWidgetItem
 {
 public:
@@ -93,7 +84,7 @@ public:
     PushButton loadButton;
     PushButton abortButton;
 
-    RecordTableWidget recordTable;
+    QTableWidget recordTable;
     int noColumn;
     int taskColumn;
     int eventColumn;
@@ -120,27 +111,6 @@ public:
 }
 
 
-void RecordTableWidget::keyPressEvent(QKeyEvent* event)
-{
-    bool handled = false;
-    
-    switch(event->key()){
-
-    case Qt::Key_Delete:
-        scoreViewImpl->deleteSelectedTableItems();
-        handled = true;
-        break;
-
-    defaut:
-        break;
-    }
-
-    if(!handled){
-        QTableWidget::keyPressEvent(event);
-    }
-}
-
-
 void JVRCScoreView::initializeClass(ExtensionManager* ext)
 {
     ext->viewManager().registerClass<JVRCScoreView>(
@@ -155,13 +125,14 @@ JVRCScoreView::JVRCScoreView()
 
 
 JVRCScoreViewImpl::JVRCScoreViewImpl(JVRCScoreView* self)
-    : recordTable(this)
 {
     manager = JVRCManagerItem::instance();
 
     self->setDefaultLayoutArea(View::LEFT_BOTTOM);
     self->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     
+    self->setFocusPolicy(Qt::WheelFocus);
+
     QVBoxLayout* vbox = new QVBoxLayout();
     QLabel* label;
     QFont font = scoreLabel.font();
@@ -336,6 +307,38 @@ JVRCScoreView::~JVRCScoreView()
 JVRCScoreViewImpl::~JVRCScoreViewImpl()
 {
 
+}
+
+
+void JVRCScoreView::keyPressEvent(QKeyEvent* event)
+{
+    bool handled = false;
+    
+    switch(event->key()){
+
+    case Qt::Key_Delete:
+        impl->deleteSelectedTableItems();
+        handled = true;
+        break;
+
+    case Qt::Key_Z:
+        if(event->modifiers() & Qt::ControlModifier){
+            if(event->modifiers() & Qt::ShiftModifier){
+                impl->manager->redoRecordEditing();
+            } else {
+                impl->manager->undoRecordEditing();
+            }
+            handled = true;
+        }
+        break;
+
+    defaut:
+        break;
+    }
+
+    if(!handled){
+        View::keyPressEvent(event);
+    }
 }
 
 

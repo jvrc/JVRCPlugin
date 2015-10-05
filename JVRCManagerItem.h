@@ -59,6 +59,8 @@ public:
     int numRecords() const;
     JVRCEvent* record(int index);
     void addRecord(JVRCEvent* event, double time, bool isJudged = true);
+    void undoRecordEditing();
+    void redoRecordEditing();
     SignalProxy<void()> sigRecordUpdated();
     void notifyRecordUpdate();
     

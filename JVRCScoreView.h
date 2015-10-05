@@ -19,6 +19,9 @@ public:
     JVRCScoreView();
     ~JVRCScoreView();
 
+protected:
+    virtual void keyPressEvent(QKeyEvent* event);
+
 private:
     JVRCScoreViewImpl* impl;
 };

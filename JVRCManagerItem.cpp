@@ -87,6 +87,10 @@ public:
 
     typedef std::vector<JVRCEventPtr> RecordList;
     RecordList records;
+
+    vector< shared_ptr<RecordList> > recordHistory;
+    int currentHistoryIndex;
+    
     Signal<void()> sigRecordUpdated; 
     int score;
     string recordOutputDirectory;
@@ -137,6 +141,8 @@ public:
     void addRecord(JVRCEventPtr event, double time, bool isJudged);
     JVRCEvent* findRecord(JVRCEvent* event);
     void notifyRecordUpdate();
+    void storeRecordsToHistory(bool isNewEditing);
+    bool restoreRecordsFromHistory(int index);
     void resetRecordFileName();
     void saveRecords();
     void saveRecordsAsYAML();
@@ -222,6 +228,7 @@ void JVRCManagerItemImpl::initialize()
 
     recordOutputDirectory = "/media/player/JVRC4GU/.hidden/Score_JSS/";
 
+    currentHistoryIndex = 0;
     offsetTime = 0.0;
     simulatorItem = 0;
     score = 0;
@@ -229,6 +236,8 @@ void JVRCManagerItemImpl::initialize()
     robotItem = 0;
     robotMarkerLink = 0;
     spreaderItem = 0;
+
+    storeRecordsToHistory(true);
 }
 
 
@@ -477,11 +486,59 @@ void JVRCManagerItemImpl::notifyRecordUpdate()
 
     std::sort(records.begin(), records.end(), EventTimeCmp());
 
+    storeRecordsToHistory(true);
     saveRecords();
-    
     sigRecordUpdated();
 }
 
+
+void JVRCManagerItemImpl::storeRecordsToHistory(bool isNewEditing)
+{
+    shared_ptr<RecordList> stored(new RecordList());
+    stored->reserve(records.size());
+    for(size_t i=0; i < records.size(); ++i){
+        stored->push_back(records[i]->clone());
+    }
+    if(isNewEditing){
+        currentHistoryIndex = recordHistory.size();
+    }
+    recordHistory.push_back(stored);
+}
+
+
+bool JVRCManagerItemImpl::restoreRecordsFromHistory(int index)
+{
+    if(index >= 0 && index < recordHistory.size()){
+        shared_ptr<RecordList> stored = recordHistory[index];
+        records.clear();
+        for(size_t i=0; i < stored->size(); ++i){
+            records.push_back((*stored)[i]->clone());
+        }
+        return true;
+    }
+    return false;
+}
+
+
+void JVRCManagerItem::undoRecordEditing()
+{
+    if(impl->restoreRecordsFromHistory(impl->currentHistoryIndex - 1)){
+        --impl->currentHistoryIndex;
+        impl->saveRecords();
+        impl->sigRecordUpdated();
+    }
+}
+
+
+void JVRCManagerItem::redoRecordEditing()
+{
+    if(impl->restoreRecordsFromHistory(impl->currentHistoryIndex + 1)){
+        ++impl->currentHistoryIndex;
+        impl->saveRecords();
+        impl->sigRecordUpdated();
+    }
+}
+        
 
 int JVRCManagerItem::score() const
 {
