@@ -680,7 +680,7 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
                 clearFlags[action->actionIndex()] = action->judgedTime();
             }
         }
-        for(size_t i=0; i < clearFlags.size() - 1; ++i){
+        for(size_t i=0; i < clearFlags.size(); ++i){
             int passed = clearFlags[i] ? 1 : 0;
             ofs << currentTask->action(i)->subTaskLabel() << "," << passed << "\n";
         }
