@@ -1082,11 +1082,12 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
 
     startTask_R3_A();
 
-    SimulationBody* simHose = simulatorItem->findSimulationBody("HOSE_TRIM_OBJ");
+    SimulationBody* simHose = simulatorItem->findSimulationBody("hose");
+
     if(simHose){
-        SimulationBody* simNozzle = simulatorItem->findSimulationBody("NOZZLE_OBJ");
+        SimulationBody* simNozzle = simulatorItem->findSimulationBody("nozzle");
         if(simNozzle){
-            hoseEndLink = simHose->body()->link("HOSE_TRIM_JOINT12Z");
+            hoseEndLink = simHose->body()->link("hinge_L72WD2L72ND");
             nozzleLink = simNozzle->body()->rootLink();
             if(hoseEndLink && nozzleLink){
                 os << "The hose and nozzle of the task R6 have been detected." << endl;
@@ -1283,10 +1284,10 @@ void JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle()
 {
     //cout << "JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle()" << endl;
     
-    static const Vector3 hoseEndPos(0.0, 0.28, 0.0);
-    static const Vector3 forceOnHose(0.0, 200.0, 0.0);
-    static const Vector3 nozzleEndPos(0.0, 0.0, -0.55);
-    static const Vector3 forceOnNozzle(0.0, 0.0, -200.0);
+    static const Vector3 hoseEndPos(0.0, 0.0, -0.2);
+    static const Vector3 forceOnHose(0.0, 0.0, -10.0); // +200
+    static const Vector3 nozzleEndPos(0.540, 6.893, 2.200);
+    static const Vector3 forceOnNozzle(0.0, 10.0, 0.0); // -200
 
     Vector3 ph = hoseEndLink->T() * hoseEndPos;
     Vector3 pn = nozzleLink->T() * nozzleEndPos;
