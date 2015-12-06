@@ -10,11 +10,12 @@
 
 namespace cnoid {
 
-class SphereMarkerDevice : public ActiveDevice
+class SphereMarkerDevice : public Device
 {
 public:
     SphereMarkerDevice();
     SphereMarkerDevice(const SphereMarkerDevice& org, bool copyState = true);
+    virtual const char* typeName();    
     void copyStateFrom(const SphereMarkerDevice& other);
     virtual void copyStateFrom(const DeviceState& other);
     virtual DeviceState* cloneState() const;

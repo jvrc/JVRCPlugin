@@ -5,7 +5,7 @@
 
 #include "SphereMarkerDevice.h"
 #include <cnoid/SceneDevice>
-#include <cnoid/SceneMarker>
+#include <cnoid/SceneMarkers>
 #include <boost/bind.hpp>
 
 using namespace std;
@@ -65,6 +65,12 @@ SphereMarkerDevice::SphereMarkerDevice()
 }
 
 
+const char* SphereMarkerDevice::typeName()
+{
+    return "SphereMarkerDevice";
+}
+
+
 void SphereMarkerDevice::copyStateFrom(const SphereMarkerDevice& other)
 {
     on_ = other.on_;
@@ -85,7 +91,7 @@ void SphereMarkerDevice::copyStateFrom(const DeviceState& other)
 
 
 SphereMarkerDevice::SphereMarkerDevice(const SphereMarkerDevice& org, bool copyAll)
-    : ActiveDevice(org, copyAll)
+    : Device(org, copyAll)
 {
     copyStateFrom(org);
 }
@@ -105,7 +111,7 @@ Device* SphereMarkerDevice::clone() const
 void SphereMarkerDevice::forEachActualType(boost::function<bool(const std::type_info& type)> func)
 {
     if(!func(typeid(SphereMarkerDevice))){
-        ActiveDevice::forEachActualType(func);
+        Device::forEachActualType(func);
     }
 }
 

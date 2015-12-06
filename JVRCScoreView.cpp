@@ -7,7 +7,7 @@
 #include <cnoid/BodyItem>
 #include <cnoid/ViewManager>
 #include <cnoid/TimeBar>
-#include <cnoid/Button>
+#include <cnoid/Buttons>
 #include <cnoid/MessageView>
 #include <QBoxLayout>
 #include <QFormLayout>

@@ -302,7 +302,7 @@ Position JVRCManagerItem::startingPosition() const
 }
             
 
-ItemPtr JVRCManagerItem::doDuplicate() const
+Item* JVRCManagerItem::doDuplicate() const
 {
     return new JVRCManagerItem(*this);
 }

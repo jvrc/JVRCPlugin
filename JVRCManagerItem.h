@@ -70,7 +70,7 @@ public:
     virtual void finalizeSimulation();
 
 protected:
-    virtual ItemPtr doDuplicate() const;
+    virtual Item* doDuplicate() const;
     virtual void onPositionChanged();
     virtual void doPutProperties(PutPropertyFunction& putProperty);
     virtual bool store(Archive& archive);
