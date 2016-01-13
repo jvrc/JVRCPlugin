@@ -14,7 +14,7 @@ class SphereMarkerDevice : public Device
 {
 public:
     SphereMarkerDevice();
-    SphereMarkerDevice(const SphereMarkerDevice& org, bool copyState = true);
+    SphereMarkerDevice(const SphereMarkerDevice& org, bool copyStateOnly = false);
     virtual const char* typeName();    
     void copyStateFrom(const SphereMarkerDevice& other);
     virtual void copyStateFrom(const DeviceState& other);

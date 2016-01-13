@@ -90,8 +90,8 @@ void SphereMarkerDevice::copyStateFrom(const DeviceState& other)
 
 
 
-SphereMarkerDevice::SphereMarkerDevice(const SphereMarkerDevice& org, bool copyAll)
-    : Device(org, copyAll)
+SphereMarkerDevice::SphereMarkerDevice(const SphereMarkerDevice& org, bool copyStateOnly)
+    : Device(org, copyStateOnly)
 {
     copyStateFrom(org);
 }
