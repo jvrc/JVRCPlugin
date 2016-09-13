@@ -23,7 +23,6 @@
 #include <cnoid/Timer>
 #include <QFileDialog>
 #include <boost/dynamic_bitset.hpp>
-#include <boost/bind.hpp>
 #include <algorithm>
 
 #include <iostream>
@@ -31,8 +30,10 @@
 #include "gettext.h"
 
 using namespace std;
+using namespace std::placeholders;
+namespace filesystem = boost::filesystem;
+using boost::format;
 using namespace cnoid;
-using namespace boost;
 
 namespace {
 
@@ -77,8 +78,8 @@ public:
     ScopedConnectionSet simulatorConnections;
     double timeStep;
     double offsetTime;
-    optional<double> startingTime;
-    optional<double> goalTime;
+    boost::optional<double> startingTime;
+    boost::optional<double> goalTime;
     string remainingTimeOutputDirectory;
     std::ofstream remainingTimeOutputStream;
     LazyCaller checkRemainingTimeLater;
@@ -172,7 +173,7 @@ void JVRCManagerItem::initializeClass(ExtensionManager* ext)
     instance_ = new JVRCManagerItem;
     im.registerClass<JVRCManagerItem>(N_("JVRCManagerItem"), instance_);
     im.addLoader<JVRCManagerItem>(_("JVRC Info"), "JVRC-INFO", "yaml",
-                                  boost::bind(&JVRCManagerItem::loadJVRCInfo, _1, _2));
+                                  std::bind(&JVRCManagerItem::loadJVRCInfo, _1, _2));
 
     MenuManager& mm = ext->menuManager();
     MappingPtr config = AppConfig::archive()->openMapping("JVRCPlugin");
@@ -224,7 +225,7 @@ void JVRCManagerItemImpl::initialize()
 {
     remainingTimeOutputDirectory = "/home/samba/Time/";
     checkRemainingTimeLater.setFunction(
-        boost::bind(&JVRCManagerItemImpl::checkRemainingTime, this));
+        std::bind(&JVRCManagerItemImpl::checkRemainingTime, this));
 
     recordOutputDirectory = "/media/player/JVRC4GU/.hidden/Score_JSS/";
 
@@ -637,7 +638,7 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
 {
     ofstream ofs((recordFileNameBase + ".csv").c_str());
 
-    optional<double> endTime;
+    boost::optional<double> endTime;
     for(RecordList::reverse_iterator p = records.rbegin(); p != records.rend(); ++p){
         if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(p->get())){
             if(gate->isGoal() && gate->judgedTime()){
@@ -654,7 +655,7 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
     ofs << "\n";
 
     if(currentTask->numGates() >= 3){
-        vector<optional<double> > timeRecords(currentTask->numGates());
+        vector<boost::optional<double>> timeRecords(currentTask->numGates());
         for(size_t i=0; i < records.size(); ++i){
             if(JVRCGateEvent* gate = dynamic_cast<JVRCGateEvent*>(records[i].get())){
                 timeRecords[gate->gateIndex()] = gate->judgedTime();
@@ -673,11 +674,11 @@ void JVRCManagerItemImpl::saveRecordsAsCSV()
             ofs << "\n";
         }
     } else if(currentTask->numActions() > 0){
-        dynamic_bitset<> clearFlags;
+        boost::dynamic_bitset<> clearFlags;
         clearFlags.resize(currentTask->numActions());
         for(size_t i=0; i < records.size(); ++i){
             if(JVRCActionEvent* action = dynamic_cast<JVRCActionEvent*>(records[i].get())){
-                clearFlags[action->actionIndex()] = action->judgedTime();
+                clearFlags[action->actionIndex()] = (bool)action->judgedTime();
             }
         }
         for(size_t i=0; i < clearFlags.size(); ++i){
@@ -701,7 +702,7 @@ void JVRCManagerItemImpl::onPositionChanged()
     if(worldItem){
         worldItemConnection.reset(
             worldItem->sigSubTreeChanged().connect(
-                boost::bind(&JVRCManagerItemImpl::onItemsInWorldChanged, this)));
+                std::bind(&JVRCManagerItemImpl::onItemsInWorldChanged, this)));
     }
 }
 
@@ -1062,7 +1063,7 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
     simulatorConnections.disconnect();
     simulatorConnections.add(
         simulatorItem->sigSimulationStarted().connect(
-            boost::bind(boost::ref(sigSimulationStateChanged), true)));
+            std::bind(std::ref(sigSimulationStateChanged), true)));
 
     robotMarker = 0;
     if(robotItem){
@@ -1075,7 +1076,7 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
                 isInFrontOfGate = false;
                 isPassingGate = false;
                 simulatorItem->addPostDynamicsFunction(
-                    boost::bind(&JVRCManagerItemImpl::checkRobotMarkerPosition, this));
+                    std::bind(&JVRCManagerItemImpl::checkRobotMarkerPosition, this));
             }
         }
     }
@@ -1092,7 +1093,7 @@ bool JVRCManagerItemImpl::initializeSimulation(SimulatorItem* simulatorItem)
             if(hoseEndLink && nozzleLink){
                 os << "The hose and nozzle of the task R6 have been detected." << endl;
                 simulatorItem->addPreDynamicsFunction(
-                    boost::bind(&JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle, this));
+                    std::bind(&JVRCManagerItemImpl::checkConnectionBetweenHoseAndNozzle, this));
             }
         }
     }
@@ -1131,7 +1132,7 @@ void JVRCManagerItemImpl::startTask_R3_A()
                     spreaderHitMarker->setRadius(minMarkerRadius);
                     os << "The spreader and the car door of Task R3A have been detected." << endl;
                     simulatorItem->addPostDynamicsFunction(
-                        boost::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
+                        std::bind(&JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor, this));
                 }
             }
         }
@@ -1186,7 +1187,7 @@ void JVRCManagerItemImpl::checkRobotMarkerPosition()
                 robotMarker->setColor(Vector3f(0.0f, 0.0f, 1.0f));
                 if(isInFrontOfGate){
                     os << "Gate " << gate->gateIndex() << " has been passed." << endl;
-                    callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, gate, elapsedTime(), false));
+                    callLater(std::bind(&JVRCManagerItemImpl::addRecord, this, gate, elapsedTime(), false));
                     ++nextGateIndex;
                 }
             } else {
@@ -1242,14 +1243,14 @@ void JVRCManagerItemImpl::checkHitBetweenSpreaderAndDoor()
 
                 JVRCEvent* event = new JVRCEvent("internal", currentTask);
                 event->setLabel(str(format("Cut %1%") % hitIndex));
-                callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
+                callLater(std::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
                     
                 if(doorDestroyFlags.count() == doorDestroyFlags.size()){
                     doorRoot->T().translation().z() -= 2.0;
                     if(currentTask){
                         JVRCEvent* event = currentTask->findAction("Remove Door");
                         if(event){
-                            callLater(boost::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
+                            callLater(std::bind(&JVRCManagerItemImpl::addRecord, this, event, elapsedTime(), false));
                         }
                     }
                 }

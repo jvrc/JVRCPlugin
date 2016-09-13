@@ -6,9 +6,7 @@
 #include "JVRCBar.h"
 #include <cnoid/Button>
 #include <cnoid/SpinBox>
-#include <boost/bind.hpp>
 
-using namespace boost;
 using namespace cnoid;
 
 namespace cnoid {
@@ -22,12 +20,6 @@ public:
 };
 
 }
-
-
-namespace {
-
-}
-        
 
 JVRCBar::JVRCBar()
     : ToolBar("JVRCBar")

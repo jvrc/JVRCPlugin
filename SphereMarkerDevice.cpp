@@ -6,9 +6,9 @@
 #include "SphereMarkerDevice.h"
 #include <cnoid/SceneDevice>
 #include <cnoid/SceneMarkers>
-#include <boost/bind.hpp>
 
 using namespace std;
+using namespace std::placeholders;
 using namespace cnoid;
 
 namespace {
@@ -24,7 +24,7 @@ public:
           device(static_cast<SphereMarkerDevice*>(device_)){
         marker = new SphereMarker(device->radius(), device->color(), device->transparency());
         isShown = false;
-        setSceneUpdateFunction(boost::bind(&SceneSphereMarkerDevice::updateScene, this));
+        setSceneUpdateFunction(std::bind(&SceneSphereMarkerDevice::updateScene, this));
     }
     void updateScene(){
         if(device->on() != isShown){
@@ -108,7 +108,7 @@ Device* SphereMarkerDevice::clone() const
     return new SphereMarkerDevice(*this);
 }
 
-void SphereMarkerDevice::forEachActualType(boost::function<bool(const std::type_info& type)> func)
+void SphereMarkerDevice::forEachActualType(std::function<bool(const std::type_info& type)> func)
 {
     if(!func(typeid(SphereMarkerDevice))){
         Device::forEachActualType(func);
