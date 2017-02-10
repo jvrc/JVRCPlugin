@@ -8,6 +8,15 @@
 using namespace std;
 using namespace cnoid;
 
+SceneNodeFinder::SceneNodeFinder()
+{
+    setFunction<SgNode>([&](SgNode* node){ visitNode(node); });
+    setFunction<SgGroup>([&](SgGroup* group){ visitGroup(group); });
+    setFunction<SgTransform>([&](SgTransform* transform){ visitTransform(transform); });
+    updateDispatchTable();
+}
+
+
 SgNode* SceneNodeFinder::find(SgNode* node, const std::string& name)
 {
     foundNode = 0;
@@ -15,7 +24,7 @@ SgNode* SceneNodeFinder::find(SgNode* node, const std::string& name)
     traversed.clear();
     this->name = name;
     if(node){
-        node->accept(*this);
+        dispatch(node);
     }
     return foundNode;
 }
@@ -40,7 +49,7 @@ void SceneNodeFinder::visitGroup(SgGroup* group)
     
     for(SgGroup::const_iterator p = group->begin(); p != group->end(); ++p){
         if(traversed.insert(*p).second){
-            (*p)->accept(*this);
+            dispatch(*p);
         } else {
             continue;
         }
