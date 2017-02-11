@@ -36,8 +36,8 @@ class RecordItem : public QTableWidgetItem
 public:
     int index;
     RecordItem(int index, const QString& text, bool isSelectable = false)
-        : index(index),
-          QTableWidgetItem(text)
+        : QTableWidgetItem(text),
+	  index(index)
    {
        if(isSelectable){
            setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
