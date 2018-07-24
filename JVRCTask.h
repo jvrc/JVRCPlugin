@@ -18,6 +18,7 @@ namespace cnoid {
 class Mapping;
 class Listing;
 class JVRCTask;
+class YAMLWriter;
 
 class JVRCEvent : public Referenced
 {
